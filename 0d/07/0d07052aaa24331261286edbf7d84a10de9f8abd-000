@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Générateur de Miniature 4:5 en 4K (3072x3840) : Louisiana Bayou Procedural Church
+- Format : 4:5 en 4K (3072x3840), JPEG unique haute qualité (95%)
+- Bâtiment : découpe pure de la structure de l'église (sans interface Unreal ni UI)
+  avec séparation 45 degrés rouge/bleu canonique validée (diag_neg_off1000_red46)
+- Thème : Style V4 Thème Noir officiel du skill zenray-houdini (black_layer_04)
+- Titre : GT Sectra Bold Caps blanc avec ombre noire portée (offset 16, blur 10)
+  Ligne 1 : HOUDINI
+  Ligne 2 : PROCEDURAL CHURCH
+- Sous-titre : HDA Houdini Engine en Archive Garamond Bold Italic blanc avec ombre noire (offset 20, blur 12)
+"""
+
+from pathlib import Path
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+W, H = 3072, 3840
+BASE_DIR = Path(__file__).resolve().parent.parent
+OUT_4K_JPG = str(BASE_DIR / "Thumbnail" / "thumbnail-church-4x5-4k.jpg")
+
+# 1. Base noire pure V4
+canvas = Image.new('RGB', (W, H), (0, 0, 0))
+
+# 2. Nuage noir Style V4 officiel (black_layer_04)
+cloud_path = "/Users/zenray/.claude/skills/zenray-houdini/short-editor-v4/assets/backgrounds/black_layer_04.png"
+cloud_src = Image.open(cloud_path).convert('RGBA')
+
+tw = int(W * 1.18)
+scale_c = tw / cloud_src.width
+th = max(1, int(round(cloud_src.height * scale_c)))
+cloud_resized = cloud_src.resize((tw, th), Image.Resampling.LANCZOS)
+
+cloud_canvas = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+cx_cloud = int((W - tw) / 2)
+cy_cloud = int(H * 0.79 - th / 2)
+cloud_canvas.alpha_composite(cloud_resized, (cx_cloud, cy_cloud))
+
+# Lueur diffuse du nuage noir canonique
+alpha_c = cloud_canvas.getchannel('A')
+glow_alpha = alpha_c.filter(ImageFilter.GaussianBlur(36))
+glow_im = Image.new('RGBA', (W, H), (220, 220, 220, 255))
+glow_im.putalpha(glow_alpha.point(lambda p: int(p * 0.24)))
+
+comp_cloud = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+comp_cloud.alpha_composite(glow_im)
+comp_cloud.alpha_composite(cloud_canvas)
+canvas.paste(comp_cloud, (0, 0), comp_cloud)
+
+# 3. Église 45° rouge/bleu validée par l'utilisateur (diag_neg_off1000_red46.png)
+church_src_path = str(BASE_DIR / "03_work" / "diag_neg_off1000_red46.png")
+church_img = Image.open(church_src_path).convert('RGBA')
+
+# Bounding box exacte de l'église pour recadrer au plus près
+bbox = church_img.getchannel('A').getbbox()
+church_cropped = church_img.crop(bbox)
+
+# Mise à l'échelle pour s'adapter parfaitement à l'espace 4:5 4K
+# Hauteur cible ~ 2150px pour un équilibre parfait entre le titre et le sous-titre
+target_h = 2150
+target_w = int(round(church_cropped.width * target_h / church_cropped.height))
+church_scaled = church_cropped.resize((target_w, target_h), Image.Resampling.LANCZOS)
+
+# Positionnement centré horizontalement, croix sous le titre et base des marches posée sur le nuage
+church_x = (W - target_w) // 2
+church_y = 860
+canvas.paste(church_scaled, (church_x, church_y), church_scaled)
+
+# 4. Typographie Style V4 : GT Sectra Bold Caps + Archive Garamond
+FONT_DIR = Path("/Users/zenray/Library/Fonts")
+p_gt = str(FONT_DIR / "GT-Sectra-LCGV-Bold.otf")
+p_garamond = str(FONT_DIR / "ArchiveGaramondStd-BoldItalic.ttf")
+
+font_line1 = ImageFont.truetype(p_gt, int(round(170 * 1.25))) # 212
+font_line2 = ImageFont.truetype(p_gt, int(round(62 * 1.25)))  # 78
+font_sub = ImageFont.truetype(p_garamond, 115)
+
+def baseline_y(draw, font, top_y):
+    bb = draw.textbbox((0, 0), "Hgj", font=font, anchor="ls")
+    return top_y - bb[1]
+
+# Calque de titre haut
+text_mask = Image.new('L', (W, H), 0)
+td = ImageDraw.Draw(text_mask)
+
+# Ligne 1 : HOUDINI
+line1 = "HOUDINI"
+tracking = font_line1.size * 0.10
+chars1 = list(line1)
+widths1 = [td.textlength(c, font=font_line1) for c in chars1]
+w1 = sum(widths1) + tracking * (len(chars1) - 1)
+x1 = (W - w1) / 2.0
+y1 = 520
+base_y1 = baseline_y(td, font_line1, y1)
+cur_x = x1
+for i, c in enumerate(chars1):
+    td.text((cur_x, base_y1), c, font=font_line1, fill=255, anchor="ls")
+    cur_x += widths1[i] + tracking
+
+# Ligne 2 : PROCEDURAL CHURCH (justifié au span de la ligne 1)
+line2 = "PROCEDURAL CHURCH"
+words = line2.split(" ")
+w_chars = []
+total_chars_w = 0
+num_letter_gaps = 0
+for w in words:
+    chars = list(w)
+    cw = [td.textlength(c, font=font_line2) for c in chars]
+    w_chars.append((chars, cw))
+    total_chars_w += sum(cw)
+    num_letter_gaps += len(chars) - 1
+num_word_gaps = len(words) - 1
+denom = num_letter_gaps + 2.20 * num_word_gaps
+letter_tr = (w1 - total_chars_w) / denom if denom > 0 else 0
+word_sp = letter_tr * 2.20
+
+y2 = 700
+base_y2 = baseline_y(td, font_line2, y2)
+cur_x = x1
+for wi, (chars, cw) in enumerate(w_chars):
+    for ci, c in enumerate(chars):
+        td.text((cur_x, base_y2), c, font=font_line2, fill=255, anchor="ls")
+        cur_x += cw[ci] + letter_tr
+    if wi < num_word_gaps:
+        cur_x += word_sp - letter_tr
+
+# Ombre noire portée du titre (offset 16, blur 10)
+shadow_mask = Image.new('L', (W, H), 0)
+shadow_mask.paste(text_mask, (16, 16))
+shadow_mask = shadow_mask.filter(ImageFilter.GaussianBlur(10))
+
+title_layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+shadow_layer = Image.new('RGBA', (W, H), (0, 0, 0, 230))
+shadow_layer.putalpha(shadow_mask)
+title_layer.alpha_composite(shadow_layer)
+
+white_layer = Image.new('RGBA', (W, H), (255, 255, 255, 255))
+white_layer.putalpha(text_mask)
+title_layer.alpha_composite(white_layer)
+
+# 5. Sous-titre : HDA Houdini Engine écrit comme un sous-titre sur le nuage
+sub_mask = Image.new('L', (W, H), 0)
+sd = ImageDraw.Draw(sub_mask)
+sub_text = "HDA Houdini Engine"
+sub_words = sub_text.split(" ")
+sub_word_space = 32
+sub_lens = [sd.textlength(w, font=font_sub) for w in sub_words]
+sub_w = sum(sub_lens) + sub_word_space * (len(sub_words) - 1)
+sub_x = (W - sub_w) / 2.0
+sub_y = 3033
+base_sub_y = baseline_y(sd, font_sub, sub_y)
+
+cur_sx = sub_x
+for i, w in enumerate(sub_words):
+    sd.text((cur_sx, base_sub_y), w, font=font_sub, fill=255, anchor="ls")
+    cur_sx += sub_lens[i] + sub_word_space
+
+# Ombre noire portée du sous-titre (offset 20, blur 12)
+sub_sh_mask = Image.new('L', (W, H), 0)
+sub_sh_mask.paste(sub_mask, (20, 20))
+sub_sh_mask = sub_sh_mask.filter(ImageFilter.GaussianBlur(12))
+
+sub_layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+sub_sh = Image.new('RGBA', (W, H), (0, 0, 0, 230))
+sub_sh.putalpha(sub_sh_mask)
+sub_layer.alpha_composite(sub_sh)
+
+sub_white = Image.new('RGBA', (W, H), (255, 255, 255, 255))
+sub_white.putalpha(sub_mask)
+sub_layer.alpha_composite(sub_white)
+
+canvas.paste(title_layer, (0, 0), title_layer)
+canvas.paste(sub_layer, (0, 0), sub_layer)
+
+# 6. Sauvegarde exclusive : 4K JPEG uniquement
+Path(OUT_4K_JPG).parent.mkdir(parents=True, exist_ok=True)
+canvas.save(OUT_4K_JPG, quality=95)
+print(f"Miniature unique 4:5 4K JPG générée : {OUT_4K_JPG}")
