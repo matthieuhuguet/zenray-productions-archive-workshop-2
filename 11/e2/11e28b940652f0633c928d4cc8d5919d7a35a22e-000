@@ -1,0 +1,411 @@
+"""
+Definitive 100% Procedural Copernicus Network:
+Synthesizes the complete billowing smoke cloud, rice paper grain, charcoal ink core,
+and electric blue gouache splatters procedurally in Houdini 22 Copernicus.
+Includes reference input comparator branch for live comparison in CompositorViewer.
+"""
+import hou
+import os
+
+def run():
+    obj = hou.node("/obj")
+    ui = obj.node("FireEmblemFortune_sWave_UI")
+    if not ui:
+        ui = obj.createNode("subnet", "FireEmblemFortune_sWave_UI")
+
+    cop_name = "Cop_RefPerfect_Grayscale"
+    cop = ui.node(cop_name)
+    if cop:
+        cop.destroy()
+
+    cop = ui.createNode("copnet", cop_name)
+    cop.parm("setres").set(1)
+    cop.parm("res1").set(1672)
+    cop.parm("res2").set(941)
+
+    # =========================================================================
+    # 1. REFERENCE COMPARATOR BRANCH (Visual ground-truth comparison only)
+    # =========================================================================
+    ref = cop.createNode("file", "REF_COMPARATOR")
+    ref.parm("filename").set("/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer/refPerfect1.png")
+    ref.parm("premultiplied").set(0)
+    ref.parm("addaovs").pressButton()
+    ref.cook(force=True)
+
+    ref_a = cop.createNode("channelextract", "ref_alpha")
+    ref_a.setInput(0, ref)
+    ref_a.parm("channel").set("3")
+
+    # =========================================================================
+    # 2. PROCEDURAL CLOUD SILHOUETTE & ALPHA
+    # =========================================================================
+    # 10 Medial lobes and crests (calibrated to refPerfect1.png medial axis)
+    lobes_def = [
+        ("lobe_left_tip",   (180 - 836)/834.5,  (470.5 - 490)/834.5, 115/834.5),
+        ("lobe_left_body",  (360 - 836)/834.5,  (470.5 - 490)/834.5, 145/834.5),
+        ("lobe_bot_crest1", (460 - 836)/834.5,  (470.5 - 580)/834.5, 110/834.5),
+        ("lobe_mid_left",   (680 - 836)/834.5,  (470.5 - 510)/834.5, 155/834.5),
+        ("lobe_top_crest1", (780 - 836)/834.5,  (470.5 - 390)/834.5, 125/834.5),
+        ("lobe_center_core",(880 - 836)/834.5,  (470.5 - 480)/834.5, 165/834.5),
+        ("lobe_mid_right",  (1060 - 836)/834.5, (470.5 - 475)/834.5, 135/834.5),
+        ("lobe_top_crest2", (1240 - 836)/834.5, (470.5 - 370)/834.5, 135/834.5),
+        ("lobe_right_body", (1350 - 836)/834.5, (470.5 - 500)/834.5, 145/834.5),
+        ("lobe_right_tip",  (1530 - 836)/834.5, (470.5 - 495)/834.5, 110/834.5),
+    ]
+
+    sdf_nodes = []
+    for name, tx, ty, r in lobes_def:
+        n = cop.createNode("sdfshape", name)
+        n.parm("basictype").set("circle")
+        n.parm("circle_radius").set(r)
+        n.parm("tx").set(tx)
+        n.parm("ty").set(ty)
+        sdf_nodes.append(n)
+
+    curr_sdf = sdf_nodes[0]
+    for i in range(1, len(sdf_nodes)):
+        bl = cop.createNode("sdfblend", f"blend_sdf_{i}")
+        bl.setInput(0, curr_sdf)
+        bl.setInput(1, sdf_nodes[i])
+        bl.parm("mode").set(0) # union
+        bl.parm("smooth").set(0.14)
+        bl.parm("renormalize").set(1)
+        curr_sdf = bl
+
+    # Turbulent curl noise domain warp
+    curl = cop.createNode("curlnoise", "proc_curl")
+    curl.parm("elementsize").set(0.20)
+    curl.parm("amplitude").set(0.18)
+    curl.parm("roughness").set(0.70)
+    curl.parm("maxoctaves").set(6)
+
+    dist_sdf = cop.createNode("distort", "proc_dist_sdf")
+    dist_sdf.setInput(0, curr_sdf)
+    dist_sdf.setInput(1, curl)
+    dist_sdf.parm("scale").set(0.082)
+
+    # Edge fractal noise breakup
+    fnoise = cop.createNode("fractalnoise", "proc_fnoise_breakup")
+    fnoise.parm("signature").set("mono")
+    fnoise.parm("noisetype").set("perlin")
+    fnoise.parm("elementsize").set(0.045)
+    fnoise.parm("oct").set(5)
+    fnoise.parm("rough").set(0.75)
+    fnoise.parm("amp").set(0.035)
+
+    remap_noise = cop.createNode("remap", "proc_remap_noise")
+    remap_noise.setInput(0, fnoise)
+    remap_noise.parm("op").set("remap")
+    remap_noise.parm("inputmin").set(0.0)
+    remap_noise.parm("inputmax").set(1.0)
+    remap_noise.parm("outputmin").set(-0.035)
+    remap_noise.parm("outputmax").set(+0.035)
+
+    blend_breakup = cop.createNode("blend", "proc_blend_breakup")
+    blend_breakup.setInput(0, dist_sdf)
+    blend_breakup.setInput(1, remap_noise)
+    blend_breakup.parm("mode").set("add")
+
+    # Solid cloud mask with soft watercolor edge
+    cloud_mono = cop.createNode("sdftomono", "proc_cloud_mono")
+    cloud_mono.setInput(0, blend_breakup)
+    cloud_mono.parm("dosmooth").set(1)
+    cloud_mono.parm("smooth").set(0.018)
+
+    blur_edge = cop.createNode("blur", "proc_blur_edge")
+    blur_edge.setInput(0, cloud_mono)
+    blur_edge.parm("filter").set(1)
+    blur_edge.parm("units").set(1)
+    blur_edge.parm("size_pixel").set(2.0)
+
+    # Droplet boundary dilation
+    dilate_sdf = cop.createNode("sdfadjust", "proc_dilate_sdf")
+    dilate_sdf.setInput(0, blend_breakup)
+    dilate_sdf.parm("isooffset").set(0.045)
+
+    droplet_zone = cop.createNode("sdftomono", "proc_droplet_zone")
+    droplet_zone.setInput(0, dilate_sdf)
+    droplet_zone.parm("dosmooth").set(1)
+    droplet_zone.parm("smooth").set(0.03)
+
+    # Gouache droplet splatters
+    droplets = cop.createNode("grunge_moldspots", "proc_droplets_raw")
+    droplets.parm("elementsize").set(0.026)
+    droplets.parm("spread").set(0.75)
+    droplets.parm("primarysize").set(0.42)
+    droplets.parm("secondarysize").set(0.24)
+    droplets.parm("tertiarysize").set(0.12)
+    droplets.parm("secondarymask").set(1.0)
+    droplets.parm("tertiarymask").set(1.0)
+    droplets.parm("contrast").set(0.50)
+
+    remap_droplets = cop.createNode("remap", "proc_remap_droplets")
+    remap_droplets.setInput(0, droplets)
+    remap_droplets.parm("op").set("threshold")
+    remap_droplets.parm("threshold").set(0.26)
+    remap_droplets.parm("side").set("greater")
+
+    bounded_droplets = cop.createNode("blend", "proc_bounded_droplets")
+    bounded_droplets.setInput(0, remap_droplets)
+    bounded_droplets.setInput(1, droplet_zone)
+    bounded_droplets.parm("mode").set("multiply")
+
+    # Wing and upper crest spatial weighting
+    wing_ramp = cop.createNode("ramp", "proc_wing_ramp")
+    wing_ramp.parm("signature").set("f1")
+    wing_ramp.parm("rampType").set(0) # linear horizontal
+    r_h = wing_ramp.parm("rampmono")
+    r_h.set(hou.Ramp(
+        (hou.rampBasis.CatmullRom, hou.rampBasis.CatmullRom, hou.rampBasis.CatmullRom, hou.rampBasis.CatmullRom),
+        (0.0, 0.38, 0.62, 1.0),
+        (1.0, 0.05, 0.05, 1.0)
+    ))
+
+    warp_wing = cop.createNode("distort", "proc_warp_wing")
+    warp_wing.setInput(0, wing_ramp)
+    warp_wing.setInput(1, curl)
+    warp_wing.parm("scale").set(0.06)
+
+    top_accent_ramp = cop.createNode("ramp", "proc_top_accent_ramp")
+    top_accent_ramp.parm("signature").set("f1")
+    top_accent_ramp.parm("rampType").set(1) # linear vertical
+    r_v = top_accent_ramp.parm("rampmono")
+    r_v.set(hou.Ramp(
+        (hou.rampBasis.Linear, hou.rampBasis.Linear, hou.rampBasis.Linear),
+        (0.0, 0.40, 1.0),
+        (0.0, 0.0, 0.55)
+    ))
+
+    combined_blue_spatial = cop.createNode("blend", "proc_combined_blue_spatial")
+    combined_blue_spatial.setInput(0, warp_wing)
+    combined_blue_spatial.setInput(1, top_accent_ramp)
+    combined_blue_spatial.parm("mode").set("max")
+
+    droplet_spatial_weight = cop.createNode("blend", "proc_droplet_spatial_weight")
+    droplet_spatial_weight.setInput(0, bounded_droplets)
+    droplet_spatial_weight.setInput(1, combined_blue_spatial)
+    droplet_spatial_weight.parm("mode").set("multiply")
+
+    proc_alpha = cop.createNode("blend", "proc_alpha_final")
+    proc_alpha.setInput(0, blur_edge)
+    proc_alpha.setInput(1, droplet_spatial_weight)
+    proc_alpha.parm("mode").set("max")
+
+    out_alpha = cop.createNode("null", "OUT_ALPHA")
+    out_alpha.setInput(0, proc_alpha)
+
+    # =========================================================================
+    # 3. PROCEDURAL GRAY / CHARCOAL INK & PAPER GRAIN
+    # =========================================================================
+    erode_sdf = cop.createNode("sdfadjust", "proc_erode_sdf")
+    erode_sdf.setInput(0, blend_breakup)
+    erode_sdf.parm("isooffset").set(-0.065)
+
+    core_mask = cop.createNode("sdftomono", "proc_core_mask")
+    core_mask.setInput(0, erode_sdf)
+    core_mask.parm("dosmooth").set(1)
+    core_mask.parm("smooth").set(0.065)
+
+    smoke_noise = cop.createNode("fractalnoise", "proc_smoke_noise")
+    smoke_noise.parm("signature").set("mono")
+    smoke_noise.parm("noisetype").set("perlin")
+    smoke_noise.parm("elementsize").set(0.08)
+    smoke_noise.parm("oct").set(5)
+    smoke_noise.parm("rough").set(0.70)
+    smoke_noise.parm("amp").set(0.40)
+
+    smoke_base = cop.createNode("constant", "proc_smoke_base")
+    smoke_base.parm("signature").set("f3")
+    smoke_base.parm("f3r").set(0.14)
+    smoke_base.parm("f3g").set(0.16)
+    smoke_base.parm("f3b").set(0.19)
+
+    smoke_peak = cop.createNode("constant", "proc_smoke_peak")
+    smoke_peak.parm("signature").set("f3")
+    smoke_peak.parm("f3r").set(0.48)
+    smoke_peak.parm("f3g").set(0.50)
+    smoke_peak.parm("f3b").set(0.55)
+
+    smoke_color_mix = cop.createNode("blend", "proc_smoke_color_mix")
+    smoke_color_mix.setInput(0, smoke_base)
+    smoke_color_mix.setInput(1, smoke_peak)
+    smoke_color_mix.setInput(2, smoke_noise)
+    smoke_color_mix.parm("mode").set("blend")
+
+    core_color = cop.createNode("constant", "proc_core_color")
+    core_color.parm("signature").set("f3")
+    core_color.parm("f3r").set(0.008)
+    core_color.parm("f3g").set(0.010)
+    core_color.parm("f3b").set(0.015)
+
+    gray_gradient = cop.createNode("blend", "proc_gray_gradient")
+    gray_gradient.setInput(0, smoke_color_mix)
+    gray_gradient.setInput(1, core_color)
+    gray_gradient.setInput(2, core_mask)
+    gray_gradient.parm("mode").set("blend")
+
+    # Washi rice paper tooth (Alligator noise)
+    paper_tooth = cop.createNode("fractalnoise", "proc_paper_tooth")
+    paper_tooth.parm("signature").set("mono")
+    paper_tooth.parm("noisetype").set("alligator")
+    paper_tooth.parm("elementsize").set(0.016)
+    paper_tooth.parm("oct").set(6)
+    paper_tooth.parm("rough").set(0.78)
+    paper_tooth.parm("amp").set(0.22)
+
+    gray_textured = cop.createNode("blend", "proc_gray_textured")
+    gray_textured.setInput(0, gray_gradient)
+    gray_textured.setInput(1, paper_tooth)
+    gray_textured.parm("mode").set("softlight")
+
+    gray_masked = cop.createNode("blend", "proc_gray_masked")
+    gray_masked.setInput(0, gray_textured)
+    gray_masked.setInput(1, proc_alpha)
+    gray_masked.parm("mode").set("multiply")
+
+    final_gray_rgba = cop.createNode("rgbtorgba", "proc_final_gray_rgba")
+    final_gray_rgba.setInput(0, gray_masked)
+    final_gray_rgba.setInput(1, proc_alpha)
+    final_gray_rgba.parm("premult").set(0)
+
+    out_gray = cop.createNode("null", "OUT_GRAY_LAYER")
+    out_gray.setInput(0, final_gray_rgba)
+
+    # =========================================================================
+    # 4. PROCEDURAL BLUE GOUACHE & WATERCOLOR DROPLETS
+    # =========================================================================
+    wash_turb = cop.createNode("fractalnoise", "proc_wash_turb")
+    wash_turb.parm("signature").set("mono")
+    wash_turb.parm("elementsize").set(0.075)
+    wash_turb.parm("oct").set(5)
+    wash_turb.parm("rough").set(0.68)
+    wash_turb.parm("amp").set(0.70)
+
+    blue_density = cop.createNode("blend", "proc_blue_density")
+    blue_density.setInput(0, combined_blue_spatial)
+    blue_density.setInput(1, wash_turb)
+    blue_density.parm("mode").set("multiply")
+
+    blue_full_mask = cop.createNode("blend", "proc_blue_full_mask")
+    blue_full_mask.setInput(0, blue_density)
+    blue_full_mask.setInput(1, droplet_spatial_weight)
+    blue_full_mask.parm("mode").set("max")
+
+    blue_base_col = cop.createNode("constant", "proc_blue_base_col")
+    blue_base_col.parm("signature").set("f3")
+    blue_base_col.parm("f3r").set(0.01)
+    blue_base_col.parm("f3g").set(0.38)
+    blue_base_col.parm("f3b").set(0.98)
+
+    blue_drop_col = cop.createNode("constant", "proc_blue_drop_col")
+    blue_drop_col.parm("signature").set("f3")
+    blue_drop_col.parm("f3r").set(0.20)
+    blue_drop_col.parm("f3g").set(0.80)
+    blue_drop_col.parm("f3b").set(1.00)
+
+    blue_colors = cop.createNode("blend", "proc_blue_colors")
+    blue_colors.setInput(0, blue_base_col)
+    blue_colors.setInput(1, blue_drop_col)
+    blue_colors.setInput(2, droplet_spatial_weight)
+    blue_colors.parm("mode").set("blend")
+
+    blue_wash_final = cop.createNode("blend", "proc_blue_wash_final")
+    blue_wash_final.setInput(0, blue_colors)
+    blue_wash_final.setInput(1, blue_full_mask)
+    blue_wash_final.parm("mode").set("multiply")
+
+    blue_masked = cop.createNode("blend", "proc_blue_masked")
+    blue_masked.setInput(0, blue_wash_final)
+    blue_masked.setInput(1, proc_alpha)
+    blue_masked.parm("mode").set("multiply")
+
+    final_blue_rgba = cop.createNode("rgbtorgba", "proc_final_blue_rgba")
+    final_blue_rgba.setInput(0, blue_masked)
+    final_blue_rgba.setInput(1, proc_alpha)
+    final_blue_rgba.parm("premult").set(0)
+
+    out_blue = cop.createNode("null", "OUT_BLUE_LAYER")
+    out_blue.setInput(0, final_blue_rgba)
+
+    # =========================================================================
+    # 5. PROCEDURAL BASECOLOR COMPOSITE
+    # =========================================================================
+    comp_rgb = cop.createNode("blend", "proc_comp_rgb")
+    comp_rgb.setInput(0, gray_masked)
+    comp_rgb.setInput(1, blue_masked)
+    comp_rgb.parm("mode").set("add")
+
+    final_base_rgba = cop.createNode("rgbtorgba", "proc_final_base_rgba")
+    final_base_rgba.setInput(0, comp_rgb)
+    final_base_rgba.setInput(1, proc_alpha)
+    final_base_rgba.parm("premult").set(0)
+
+    out_base = cop.createNode("null", "OUT_BASECOLOR")
+    out_base.setInput(0, final_base_rgba)
+    out_base.setDisplayFlag(True)
+
+    # =========================================================================
+    # 6. COMPARISON NODES (Live diff in CompositorViewer)
+    # =========================================================================
+    diff_alpha = cop.createNode("blend", "COMPARE_ALPHA")
+    diff_alpha.setInput(0, proc_alpha)
+    diff_alpha.setInput(1, ref_a)
+    diff_alpha.parm("mode").set("diff")
+
+    diff_base = cop.createNode("blend", "COMPARE_BASECOLOR")
+    diff_base.setInput(0, final_base_rgba)
+    diff_base.setInput(1, ref)
+    diff_base.parm("mode").set("diff")
+
+    # =========================================================================
+    # 7. ROP OUTPUT NODES
+    # =========================================================================
+    renders_dir = "/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer/renders"
+    os.makedirs(renders_dir, exist_ok=True)
+
+    rop_b = cop.createNode("rop_image", "ROP_BASECOLOR")
+    rop_b.setInput(0, out_base)
+    rop_b.parm("copoutput").set(os.path.join(renders_dir, "copernicus_finesse_basecolor.png"))
+    rop_b.parm("pngtga_alpha_multiplication").set("unpremult")
+
+    rop_g = cop.createNode("rop_image", "ROP_GRAY_LAYER")
+    rop_g.setInput(0, out_gray)
+    rop_g.parm("copoutput").set(os.path.join(renders_dir, "copernicus_finesse_gray_layer.png"))
+    rop_g.parm("pngtga_alpha_multiplication").set("unpremult")
+
+    rop_bl = cop.createNode("rop_image", "ROP_BLUE_LAYER")
+    rop_bl.setInput(0, out_blue)
+    rop_bl.parm("copoutput").set(os.path.join(renders_dir, "copernicus_finesse_blue_layer.png"))
+    rop_bl.parm("pngtga_alpha_multiplication").set("unpremult")
+
+    rop_a = cop.createNode("rop_image", "ROP_ALPHA")
+    rop_a.setInput(0, out_alpha)
+    rop_a.parm("copoutput").set(os.path.join(renders_dir, "copernicus_finesse_alpha.png"))
+    rop_a.parm("pngtga_alpha_multiplication").set("unpremult")
+
+    rop_d = cop.createNode("rop_image", "ROP_DIFF_BASECOLOR")
+    rop_d.setInput(0, diff_base)
+    rop_d.parm("copoutput").set(os.path.join(renders_dir, "copernicus_diff_basecolor.png"))
+    rop_d.parm("pngtga_alpha_multiplication").set("unpremult")
+
+    cop.layoutChildren()
+
+    for pane in hou.ui.paneTabs():
+        if pane.type() == hou.paneTabType.NetworkEditor:
+            pane.setPwd(cop)
+            pane.homeToSelection()
+        elif pane.type() == hou.paneTabType.CompositorViewer:
+            pane.setPwd(cop)
+
+    # Render ROPs
+    rop_b.render()
+    rop_g.render()
+    rop_bl.render()
+    rop_a.render()
+    rop_d.render()
+
+    hou.hipFile.save()
+    print("SUCCESS: 100% Procedural Copernicus network built, rendered, and HIP saved!")
+
+if __name__ == "__main__":
+    run()

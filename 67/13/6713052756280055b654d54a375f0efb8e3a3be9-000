@@ -1,0 +1,27 @@
+import numpy as np
+from PIL import Image
+
+def compare(gen_path, ref_path):
+    gen = Image.open(gen_path).convert('L')
+    ref = Image.open(ref_path).convert('L')
+    
+    gen_arr = np.array(gen, dtype=np.float32) / 255.0
+    ref_arr = np.array(ref, dtype=np.float32) / 255.0
+    
+    # Absolute difference
+    diff = np.abs(gen_arr - ref_arr)
+    mae = np.mean(diff)
+    
+    # Masked MAE (where either is > 0.05)
+    mask = (gen_arr > 0.05) | (ref_arr > 0.05)
+    mae_active = np.mean(diff[mask]) if np.any(mask) else 0.0
+    
+    print(f"Overall MAE: {mae:.4f}, Active MAE: {mae_active:.4f}")
+    print(f"Gen mean: {np.mean(gen_arr):.4f}, Ref mean: {np.mean(ref_arr):.4f}")
+    print(f"Gen max: {np.max(gen_arr):.4f}, Ref max: {np.max(ref_arr):.4f}")
+
+if __name__ == '__main__':
+    compare(
+        '/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer/renders/copernicus_grayscale_reproduced.png',
+        '/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer/ref_grayscale_direct.png'
+    )

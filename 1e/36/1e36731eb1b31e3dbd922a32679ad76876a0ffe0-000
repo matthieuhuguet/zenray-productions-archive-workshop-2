@@ -1,0 +1,261 @@
+"""
+Script: build_copernicus_grayscale.py
+Project: LouisianaBayou (Houdini 22 Copernicus)
+Subnet: /obj/FireEmblemFortune_sWave_UI/Cop_RefPerfect_Grayscale
+Objective: Procedurally reproduce refPerfect1.png strictly in grayscale layers
+(Height/Density map, direct luminance map, and fine splatter droplets).
+"""
+
+import os
+import hou
+
+def build_network():
+    # 1. Target Subnet
+    obj = hou.node("/obj")
+    ui_subnet = obj.node("FireEmblemFortune_sWave_UI")
+    if not ui_subnet:
+        ui_subnet = obj.createNode("subnet", "FireEmblemFortune_sWave_UI")
+
+    # 2. Dedicated Copernicus Network
+    cop_name = "Cop_RefPerfect_Grayscale"
+    cop = ui_subnet.node(cop_name)
+    if cop:
+        cop.destroy()
+
+    cop = ui_subnet.createNode("copnet", cop_name)
+    cop.parm("setres").set(1)
+    cop.parm("res1").set(1672)
+    cop.parm("res2").set(941)
+
+    # 3. Reference Input Node
+    ref = cop.createNode("file", "REF_IN")
+    ref_path = "/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer/ref_grayscale_direct.png"
+    ref.parm("filename").set(ref_path)
+
+    # 4. Base Ribbon SDF Shape
+    shape = cop.createNode("sdfshape", "ribbon_shape")
+    shape.parm("basictype").set("rect")
+    shape.parm("rect_sizex").set(1.85)
+    shape.parm("rect_sizey").set(0.36)
+    shape.parm("rect_round").set(1)
+    shape.parm("rect_roundness").set(0.15)
+
+    # 5. Base Ribbon Feathered Mono Mask
+    mono = cop.createNode("sdftomono", "ribbon_mono")
+    mono.setInput(0, shape)
+    mono.parm("dosmooth").set(1)
+    mono.parm("smooth").set(0.2)
+
+    # 6. Macro Billowing Smoke Noise
+    macro = cop.createNode("fractalnoise", "cloud_macro")
+    macro.parm("signature").set("mono")
+    macro.parm("noisetype").set("perlin")
+    macro.parm("elementsize").set(0.35)
+    macro.parm("oct").set(5)
+    macro.parm("rough").set(0.55)
+    macro.parm("center").set(0.5)
+    macro.parm("amp").set(1.0)
+
+    # 7. Meso Wisps Smoke Noise
+    meso = cop.createNode("fractalnoise", "cloud_meso")
+    meso.parm("signature").set("mono")
+    meso.parm("noisetype").set("perlin")
+    meso.parm("elementsize").set(0.09)
+    meso.parm("oct").set(6)
+    meso.parm("rough").set(0.6)
+    meso.parm("center").set(0.5)
+    meso.parm("amp").set(0.7)
+
+    # 8. Organic Billowing Silhouette Modulation
+    mult_body = cop.createNode("blend", "mult_body")
+    mult_body.setInput(0, mono)
+    mult_body.setInput(1, macro)
+    mult_body.parm("mode").set("multiply")
+
+    remap_body = cop.createNode("remap", "remap_body")
+    remap_body.setInput(0, mult_body)
+    remap_body.parm("op").set("remap")
+    remap_body.parm("inputmin").set(0.08)
+    remap_body.parm("inputmax").set(0.45)
+    remap_body.parm("outputmin").set(0.0)
+    remap_body.parm("outputmax").set(1.0)
+
+    # 9. Fine Surface Tooth / Paper Ink Grain
+    grain = cop.createNode("fractalnoise", "ink_grain")
+    grain.parm("signature").set("mono")
+    grain.parm("noisetype").set("perlin")
+    grain.parm("elementsize").set(0.02)
+    grain.parm("oct").set(4)
+    grain.parm("rough").set(0.65)
+    grain.parm("amp").set(0.2)
+
+    # 10. Blend Internal Cloud Wisps
+    b_cloud = cop.createNode("blend", "blend_clouds")
+    b_cloud.setInput(0, macro)
+    b_cloud.setInput(1, meso)
+    b_cloud.parm("mode").set("screen")
+
+    b_grain = cop.createNode("blend", "blend_grain")
+    b_grain.setInput(0, b_cloud)
+    b_grain.setInput(1, grain)
+    b_grain.parm("mode").set("softlight")
+
+    b_masked = cop.createNode("blend", "cloud_silhouette_masked")
+    b_masked.setInput(0, b_grain)
+    b_masked.setInput(1, remap_body)
+    b_masked.parm("mode").set("multiply")
+
+    # 11. Multiscale Ink Splatters (Large, Small, Micro)
+    splat_l = cop.createNode("fractalnoise", "splatter_large")
+    splat_l.parm("signature").set("mono")
+    splat_l.parm("noisetype").set("worleyA")
+    splat_l.parm("elementsize").set(0.045)
+    splat_l.parm("oct").set(1)
+
+    splat_l_th = cop.createNode("remap", "splatter_l_thresh")
+    splat_l_th.setInput(0, splat_l)
+    splat_l_th.parm("op").set("threshold")
+    splat_l_th.parm("threshold").set(0.18)
+    splat_l_th.parm("side").set("less")
+
+    splat_s = cop.createNode("fractalnoise", "splatter_small")
+    splat_s.parm("signature").set("mono")
+    splat_s.parm("noisetype").set("worleyA")
+    splat_s.parm("elementsize").set(0.022)
+    splat_s.parm("oct").set(1)
+
+    splat_s_th = cop.createNode("remap", "splatter_s_thresh")
+    splat_s_th.setInput(0, splat_s)
+    splat_s_th.parm("op").set("threshold")
+    splat_s_th.parm("threshold").set(0.17)
+    splat_s_th.parm("side").set("less")
+
+    splat_micro = cop.createNode("fractalnoise", "splatter_micro")
+    splat_micro.parm("signature").set("mono")
+    splat_micro.parm("noisetype").set("worleyA")
+    splat_micro.parm("elementsize").set(0.012)
+    splat_micro.parm("oct").set(1)
+
+    splat_micro_th = cop.createNode("remap", "splatter_micro_thresh")
+    splat_micro_th.setInput(0, splat_micro)
+    splat_micro_th.parm("op").set("threshold")
+    splat_micro_th.parm("threshold").set(0.15)
+    splat_micro_th.parm("side").set("less")
+
+    splat_comb_ls = cop.createNode("blend", "splatter_combined")
+    splat_comb_ls.setInput(0, splat_l_th)
+    splat_comb_ls.setInput(1, splat_s_th)
+    splat_comb_ls.parm("mode").set("max")
+
+    splat_comb_all = cop.createNode("blend", "splatter_combine_all")
+    splat_comb_all.setInput(0, splat_comb_ls)
+    splat_comb_all.setInput(1, splat_micro_th)
+    splat_comb_all.parm("mode").set("max")
+
+    # 12. Splatter Spatial Bounds Mask
+    sp_shape = cop.createNode("sdfshape", "splatter_bounds_shape")
+    sp_shape.parm("basictype").set("rect")
+    sp_shape.parm("rect_sizex").set(1.92)
+    sp_shape.parm("rect_sizey").set(0.55)
+    sp_shape.parm("rect_round").set(1)
+    sp_shape.parm("rect_roundness").set(0.2)
+
+    sp_mono = cop.createNode("sdftomono", "splatter_bounds_mono")
+    sp_mono.setInput(0, sp_shape)
+    sp_mono.parm("dosmooth").set(1)
+    sp_mono.parm("smooth").set(0.18)
+
+    splat_masked = cop.createNode("blend", "splatter_masked")
+    splat_masked.setInput(0, splat_comb_all)
+    splat_masked.setInput(1, sp_mono)
+    splat_masked.parm("mode").set("multiply")
+
+    # 13. Assemble Height / Volume Density
+    cloud_with_splatters = cop.createNode("blend", "cloud_with_splatters")
+    cloud_with_splatters.setInput(0, b_masked)
+    cloud_with_splatters.setInput(1, splat_masked)
+    cloud_with_splatters.parm("mode").set("max")
+
+    out_height = cop.createNode("null", "OUT_HEIGHT_DENSITY")
+    out_height.setInput(0, cloud_with_splatters)
+
+    # 14. Assemble Direct Grayscale Luminance (with Dark Ink Core)
+    core_shape = cop.createNode("sdfshape", "core_dark_shape")
+    core_shape.parm("basictype").set("rect")
+    core_shape.parm("rect_sizex").set(1.5)
+    core_shape.parm("rect_sizey").set(0.22)
+    core_shape.parm("rect_round").set(1)
+    core_shape.parm("rect_roundness").set(0.1)
+
+    core_mono = cop.createNode("sdftomono", "core_dark_mono")
+    core_mono.setInput(0, core_shape)
+    core_mono.parm("dosmooth").set(1)
+    core_mono.parm("smooth").set(0.18)
+
+    core_mod = cop.createNode("blend", "core_dark_modulated")
+    core_mod.setInput(0, core_mono)
+    core_mod.setInput(1, macro)
+    core_mod.parm("mode").set("multiply")
+
+    lum_carve = cop.createNode("blend", "luminance_dark_core")
+    lum_carve.setInput(0, b_masked)
+    lum_carve.setInput(1, core_mod)
+    lum_carve.parm("mode").set("subtract")
+
+    lum_splatters = cop.createNode("blend", "luminance_with_splatters")
+    lum_splatters.setInput(0, lum_carve)
+    lum_splatters.setInput(1, splat_masked)
+    lum_splatters.parm("mode").set("max")
+
+    lum_tonal = cop.createNode("remap", "tonal_luminance")
+    lum_tonal.setInput(0, lum_splatters)
+    lum_tonal.parm("op").set("remap")
+    lum_tonal.parm("inputmin").set(0.0)
+    lum_tonal.parm("inputmax").set(0.85)
+    lum_tonal.parm("outputmin").set(0.0)
+    lum_tonal.parm("outputmax").set(0.88)
+
+    out_lum = cop.createNode("null", "OUT_GRAYSCALE_LUMINANCE")
+    out_lum.setInput(0, lum_tonal)
+    out_lum.setDisplayFlag(True)
+
+    # 15. Real-Time Difference Check Node vs Reference
+    diff_node = cop.createNode("blend", "DIFF_VS_REF")
+    diff_node.setInput(0, out_lum)
+    diff_node.setInput(1, ref)
+    diff_node.parm("mode").set("diff")
+
+    # 16. Export ROPs
+    render_dir = "/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer/renders"
+    os.makedirs(render_dir, exist_ok=True)
+
+    rop_lum = cop.createNode("rop_image", "ROP_LUMINANCE")
+    rop_lum.setInput(0, out_lum)
+    rop_lum.parm("copoutput").set(os.path.join(render_dir, "copernicus_grayscale_luminance.png"))
+    rop_lum.parm("trange").set(0)
+
+    rop_height = cop.createNode("rop_image", "ROP_HEIGHT_DENSITY")
+    rop_height.setInput(0, out_height)
+    rop_height.parm("copoutput").set(os.path.join(render_dir, "copernicus_height_density.png"))
+    rop_height.parm("trange").set(0)
+
+    # Clean auto-layout in Network Editor
+    cop.layoutChildren()
+
+    # 17. Live Houdini UI Viewport Pointers
+    for t in hou.ui.paneTabs():
+        if t.type().name() == "NetworkEditor":
+            t.setPwd(cop)
+            if hasattr(t, "frameAll"):
+                t.frameAll()
+        elif t.type().name() == "CompositorViewer":
+            try:
+                t.setCurrentNode(out_lum)
+            except Exception:
+                pass
+
+    print(f"Network built successfully with {len(cop.children())} nodes.")
+    return cop
+
+if __name__ == "__main__":
+    build_network()
