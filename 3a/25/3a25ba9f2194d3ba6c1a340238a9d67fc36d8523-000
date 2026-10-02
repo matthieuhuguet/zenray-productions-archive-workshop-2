@@ -1,0 +1,23 @@
+# style-v3-background-variants : feedback, prompts and rules (append only)
+
+## Prompt log
+- 2026-09-18 20:48 : Utiliser img-blue-layer.png et img2.png comme backgrounds pour tester un nouveau style sur deux frames, renommer les images en img-blue-layer-01.png et img-red-layer-02.png, garder le titre du style v3, tester Alize Bold, SF Pro et GT Sectra pour le titre, plusieurs polices et couleurs pour les sous-titres, produire beaucoup d'images, une sheet, et un MOV d'animation canon avec fade in du background de gauche à droite comme des particules.
+- 2026-09-18 21:00 : Le style shorts V3 est dans la skill zenray-houdini et doit être appliqué comme référence visuelle de cette exploration.
+- 2026-09-18 21:54 : Le texte n est pas droit sur frame-blue-style-v3.png et il manque toutes les déclinaisons de fonts.
+- 2026-09-18 22:05 : Le texte n est pas droit dans les déclinaisons et il faut recommencer sans ouvrir toutes les images.
+- 2026-09-18 22:39 : Les titres doivent rester en Caps Lock. Pour les sous-titres, Archive Garamond fonctionne bien. Régénérer avec Archive Garamond et tester toutes les fonts de titre évoquées en capitales.
+- 2026-09-18 23:48 : GT Sectra caps est le meilleur. Augmenter le titre de 1.25. Tester sous-titres blanc et jaune, titres blanc et gris. Garder les backgrounds et refaire l animation en canon ligne par ligne avec fade out, sans drop shadow ni balayage gauche droite. Finaliser les assets pour le style V4.
+- 2026-09-19 00:01 : Garder uniquement la variante 029 et son équivalent rouge, créer un nouveau subfolder, ajouter un drop shadow noir centré, et enregistrer ces deux outputs comme V4.
+
+## Order of work
+
+## Standing rules
+
+## Log
+- 2026-09-18 21:09 : Le premier lancement du script alpha échoue parce que les sources renommées sont dans tmp-layer et non dans tmp-layer/texture-black-white ; le script est corrigé avec un source_dir séparé.
+- 2026-09-18 21:09 : La première rampe de révélation alpha rend la couche invisible à 100 pour cent ; le balayage est inversé pour révéler de gauche à droite et conserver la couche visible à la fin.
+- 2026-09-18 21:09 : Résultat vérifié : 96 images, planche 3072 x 6000, deux frames 3072 x 3840, MOV HEVC 3072 x 3840 à 30 fps pendant 6 secondes, MP4 compagnon, et feuille de contrôle de l animation.
+- 2026-09-18 21:54 : Diagnostic et correction : la frame canonique utilisait Alize Bold Caps et YuMincho, tandis que les autres fonts restaient seulement dans la matrice 1536 x 1920. La justification distribuait aussi l espace sur chaque lettre. La frame canonique passe à SF Pro et YuMincho, la justification réserve l espace supplémentaire entre les mots, et 24 frames 4K sont ajoutées dans frames/font-variants/.
+- 2026-09-18 22:05 : Deux exemples seulement ont été inspectés. Le problème de ligne de base venait de l ancre lt utilisée glyphes par glyphes et est remplacé par une ligne de base ls commune. SF Pro et GT Sectra restent en casse normale ; seule Alize Bold Caps est en capitales. Inter Tight Italic et Archive Garamond Italic restent inclinées par définition de leur fonte.
+- 2026-09-18 22:39 : Correction appliquée : SF Pro, Alize Bold et GT Sectra rendent tous HOUDINI et LOREM IPSUM en capitales. Le template de sous-titre actif est Archive Garamond Bold Italic, décliné sur les quatre couleurs. La matrice contient 24 images, les frames haute résolution contiennent les 6 couples titre/background, et le MOV est régénéré.
+- 2026-09-19 00:01 : Le sous-dossier style-v4-background-variants/final-2-outputs contient exactement deux PNG 4K : GT Sectra blanc et Archive Garamond blanc sur backgrounds bleu et rouge. Le script generate_v4_selected.py active une ombre noire sur le titre et les sous-titres sans modifier la matrice V4.

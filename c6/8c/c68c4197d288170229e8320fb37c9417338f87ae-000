@@ -1,0 +1,241 @@
+import os
+import sys
+from PIL import Image, ImageFont, ImageDraw, ImageFilter
+import numpy as np
+
+# 2026-09-18 23:39: Store the regenerated background assets beside the V4 compositor outputs.
+
+base_dir = "/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer/texture-black-white"
+source_dir = "/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer"
+shorts_dir = os.path.join(base_dir, "shorts")
+alphas_dir = os.path.join(shorts_dir, "alphas")
+variant_dir = os.path.join(shorts_dir, "style-v4-background-variants")
+background_asset_dir = os.path.join(variant_dir, "background-assets")
+os.makedirs(alphas_dir, exist_ok=True)
+os.makedirs(background_asset_dir, exist_ok=True)
+
+BACKGROUND_SOURCES = {
+    "blue_layer_01": os.path.join(source_dir, "img-blue-layer-01.png"),
+    "red_layer_02": os.path.join(source_dir, "img-red-layer-02.png"),
+}
+
+
+def prepare_background_assets():
+    """Copy the two RGBA layers and export their alpha masks for the compositor."""
+    source_sheet = Image.new("RGBA", (960, 520), (8, 8, 12, 255))
+    source_draw = ImageDraw.Draw(source_sheet)
+    for index, (key, path) in enumerate(BACKGROUND_SOURCES.items()):
+        if not os.path.isfile(path):
+            raise FileNotFoundError(path)
+        image = Image.open(path).convert("RGBA")
+        image.save(os.path.join(background_asset_dir, f"{key}.png"))
+        image.getchannel("A").save(os.path.join(background_asset_dir, f"{key}_alpha.png"))
+        thumb = image.copy()
+        thumb.thumbnail((900, 220), Image.Resampling.LANCZOS)
+        x = (source_sheet.width - thumb.width) // 2
+        y = 40 + index * 240
+        source_sheet.alpha_composite(thumb, (x, y))
+        source_draw.text((24, y + 2), key, fill=(255, 255, 255, 255))
+    source_sheet.convert("RGB").save(os.path.join(background_asset_dir, "background_sources_sheet.jpg"), quality=92)
+
+
+prepare_background_assets()
+
+font_path = "/Users/zenray/Library/Fonts/alize-bold.ttf"
+path_density = os.path.join(base_dir, "ref_height_density.png")
+path_grayscale = os.path.join(base_dir, "ref_grayscale_direct.png")
+
+print(f"Loading references...")
+img_density_raw = Image.open(path_density).convert("L")
+img_grayscale_raw = Image.open(path_grayscale).convert("L")
+
+arr_d = np.array(img_density_raw, dtype=np.float32)
+arr_g = np.array(img_grayscale_raw, dtype=np.float32)
+
+H, W = arr_d.shape
+print(f"Dimensions: {W} x {H}")
+
+# 1. Nettoyage du piédestal (bruit <= 1 coupé à zéro net)
+# Normalisation douce pour préserver la douceur des volutes
+arr_d_clean = np.where(arr_d > 1.0, (arr_d - 1.0) / (253.0 - 1.0) * 255.0, 0.0)
+arr_d_clean = np.clip(arr_d_clean, 0.0, 255.0)
+
+arr_g_clean = np.where(arr_g > 1.0, (arr_g - 1.0) / (221.0 - 1.0) * 255.0, 0.0)
+arr_g_clean = np.clip(arr_g_clean, 0.0, 255.0)
+
+# Enveloppe active (masque binaire lisse de la zone du nuage)
+env_mask = (arr_d_clean > 0.5).astype(np.float32)
+# Version lissée de l'enveloppe pour l'inversion interne
+env_pil = Image.fromarray((env_mask * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius=3))
+env_smooth = np.array(env_pil, dtype=np.float32) / 255.0
+
+# 2. Sauvegarde des masques Niveaux de Gris (Mode L)
+# Masque de densité direct
+mask_d_direct = arr_d_clean.astype(np.uint8)
+Image.fromarray(mask_d_direct, mode="L").save(os.path.join(alphas_dir, "mask_density_direct.png"))
+
+# Masque de densité inversé à l'intérieur de l'enveloppe
+mask_d_inv = np.clip((255.0 - arr_d_clean) * env_smooth, 0.0, 255.0).astype(np.uint8)
+Image.fromarray(mask_d_inv, mode="L").save(os.path.join(alphas_dir, "mask_density_inverted.png"))
+
+# Masque de luminance direct
+mask_g_direct = arr_g_clean.astype(np.uint8)
+Image.fromarray(mask_g_direct, mode="L").save(os.path.join(alphas_dir, "mask_grayscale_direct.png"))
+
+# Masque de luminance inversé à l'intérieur de l'enveloppe
+mask_g_inv = np.clip((255.0 - arr_g_clean) * env_smooth, 0.0, 255.0).astype(np.uint8)
+Image.fromarray(mask_g_inv, mode="L").save(os.path.join(alphas_dir, "mask_grayscale_inverted.png"))
+
+# Masque enveloppe binaire net
+mask_env_bin = (env_mask * 255.0).astype(np.uint8)
+Image.fromarray(mask_env_bin, mode="L").save(os.path.join(alphas_dir, "mask_envelope_binary.png"))
+
+print("Masques en niveaux de gris générés avec succès.")
+
+# 3. Génération des versions RGBA transparentes propres
+# Palette encre sumi profonde pour fond blanc
+INK_COLOR = np.array([16.0, 16.0, 20.0], dtype=np.float32) # R, G, B encre noire
+WHITE_COLOR = np.array([255.0, 255.0, 255.0], dtype=np.float32) # R, G, B blanc pur
+
+def make_rgba(rgb_color, alpha_array):
+    rgba = np.zeros((H, W, 4), dtype=np.uint8)
+    alpha = np.clip(alpha_array, 0.0, 255.0).astype(np.uint8)
+    if len(rgb_color.shape) == 1:
+        rgba[:, :, 0] = int(rgb_color[0])
+        rgba[:, :, 1] = int(rgb_color[1])
+        rgba[:, :, 2] = int(rgb_color[2])
+    else:
+        rgba[:, :, :3] = np.clip(rgb_color, 0.0, 255.0).astype(np.uint8)
+    rgba[:, :, 3] = alpha
+    return Image.fromarray(rgba, mode="RGBA")
+
+# A. ref_height_density.png
+# Fond noir : bandeau blanc lumineux direct
+rgba_d_white_dir = make_rgba(WHITE_COLOR, arr_d_clean)
+rgba_d_white_dir.save(os.path.join(alphas_dir, "banner_density_white_direct.png"))
+
+# Fond noir : bandeau blanc lumineux inversé
+rgba_d_white_inv = make_rgba(WHITE_COLOR, mask_d_inv)
+rgba_d_white_inv.save(os.path.join(alphas_dir, "banner_density_white_inverted.png"))
+
+# Fond blanc : bandeau sombre encre direct
+rgba_d_ink_dir = make_rgba(INK_COLOR, arr_d_clean)
+rgba_d_ink_dir.save(os.path.join(alphas_dir, "banner_density_ink_direct.png"))
+
+# Fond blanc : bandeau sombre encre inversé
+rgba_d_ink_inv = make_rgba(INK_COLOR, mask_d_inv)
+rgba_d_ink_inv.save(os.path.join(alphas_dir, "banner_density_ink_inverted.png"))
+
+# B. ref_grayscale_direct.png
+# Fond noir : bandeau blanc lumineux direct (alpha = luminance)
+rgba_g_white_dir = make_rgba(WHITE_COLOR, arr_g_clean)
+rgba_g_white_dir.save(os.path.join(alphas_dir, "banner_grayscale_white_direct.png"))
+
+# Fond noir : bandeau blanc lumineux inversé
+rgba_g_white_inv = make_rgba(WHITE_COLOR, mask_g_inv)
+rgba_g_white_inv.save(os.path.join(alphas_dir, "banner_grayscale_white_inverted.png"))
+
+# Fond blanc : bandeau sombre encre direct
+# Dans ref_grayscale_direct, le cœur d'encre est sombre (basse valeur).
+# Pour fond blanc, le cœur doit être le plus opaque en encre !
+# L'opacité d'encre = (255 - luminance) à l'intérieur de l'enveloppe.
+alpha_ink_g_direct = np.clip((255.0 - arr_g_clean) * env_smooth, 0.0, 255.0)
+rgba_g_ink_dir = make_rgba(INK_COLOR, alpha_ink_g_direct)
+rgba_g_ink_dir.save(os.path.join(alphas_dir, "banner_grayscale_ink_direct.png"))
+
+# Fond blanc : bandeau sombre encre inversé (alpha = luminance directe)
+rgba_g_ink_inv = make_rgba(INK_COLOR, arr_g_clean)
+rgba_g_ink_inv.save(os.path.join(alphas_dir, "banner_grayscale_ink_inverted.png"))
+
+# C. Versions Shaded (richesse texturée complète de Copernicus)
+# Fond noir : RGB nuancé par la luminance directe, Alpha par la densité
+rgb_shaded = np.repeat(arr_g_clean[:, :, np.newaxis], 3, axis=2)
+rgba_shaded_white = make_rgba(rgb_shaded, arr_d_clean)
+rgba_shaded_white.save(os.path.join(alphas_dir, "banner_shaded_luminous_direct.png"))
+
+# Fond blanc : RGB nuancé inversé (nuances d'encre), Alpha par la densité
+ink_rgb_shaded = np.repeat((255.0 - arr_g_clean)[:, :, np.newaxis], 3, axis=2) * (INK_COLOR / 255.0)
+rgba_shaded_ink = make_rgba(ink_rgb_shaded, arr_d_clean)
+rgba_shaded_ink.save(os.path.join(alphas_dir, "banner_shaded_ink_direct.png"))
+
+print("Bandeaux RGBA générés avec succès.")
+
+# 4. Titre HOUDINI en Alize Bold
+word = "HOUDINI"
+
+# Version 1672x941 (calée sur le bandeau Copernicus)
+# Taille 350 pt : largeur 1345 px, hauteur 194 px, parfaitement centrée dans le creux du bandeau
+title_font_350 = ImageFont.truetype(font_path, 350)
+bbox_350 = title_font_350.getbbox(word)
+tw_350 = bbox_350[2] - bbox_350[0]
+th_350 = bbox_350[3] - bbox_350[1]
+tx_350 = (W - tw_350) // 2 - bbox_350[0]
+ty_350 = (H - th_350) // 2 - bbox_350[1]
+
+# Titre Blanc 1672x941
+img_title_white_1672 = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+draw_w_1672 = ImageDraw.Draw(img_title_white_1672)
+draw_w_1672.text((tx_350, ty_350), word, font=title_font_350, fill=(255, 255, 255, 255))
+img_title_white_1672.save(os.path.join(alphas_dir, "title_houdini_white_1672x941.png"))
+
+# Titre Encre 1672x941
+img_title_ink_1672 = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+draw_i_1672 = ImageDraw.Draw(img_title_ink_1672)
+draw_i_1672.text((tx_350, ty_350), word, font=title_font_350, fill=(16, 16, 20, 255))
+img_title_ink_1672.save(os.path.join(alphas_dir, "title_houdini_ink_1672x941.png"))
+
+# Version YouTube Shorts Vertical (1080 x 1920)
+SW, SH = 1080, 1920
+title_font_shorts = ImageFont.truetype(font_path, 250)
+bbox_shorts = title_font_shorts.getbbox(word)
+tw_shorts = bbox_shorts[2] - bbox_shorts[0]
+th_shorts = bbox_shorts[3] - bbox_shorts[1]
+tx_shorts = (SW - tw_shorts) // 2 - bbox_shorts[0]
+ty_shorts = (SH - th_shorts) // 2 - bbox_shorts[1]
+
+img_title_white_shorts = Image.new("RGBA", (SW, SH), (0, 0, 0, 0))
+draw_ws = ImageDraw.Draw(img_title_white_shorts)
+draw_ws.text((tx_shorts, ty_shorts), word, font=title_font_shorts, fill=(255, 255, 255, 255))
+img_title_white_shorts.save(os.path.join(alphas_dir, "title_houdini_white_1080x1920.png"))
+
+img_title_ink_shorts = Image.new("RGBA", (SW, SH), (0, 0, 0, 0))
+draw_is = ImageDraw.Draw(img_title_ink_shorts)
+draw_is.text((tx_shorts, ty_shorts), word, font=title_font_shorts, fill=(16, 16, 20, 255))
+img_title_ink_shorts.save(os.path.join(alphas_dir, "title_houdini_ink_1080x1920.png"))
+
+# 5. Compositions complètes Shorts verticales (1080 x 1920)
+# Redimensionnement du bandeau pour cadrage Shorts vertical
+# En Shorts vertical (1080x1920), le bandeau s'intègre sur toute la largeur (1080 px)
+scale_shorts = SW / float(W) # 1080 / 1672 = 0.6459
+new_bw = SW
+new_bh = int(H * scale_shorts) # 941 * 0.6459 = 607 px
+by_shorts = (SH - new_bh) // 2 # Centré verticalement à Y = 656
+
+# Composite Fond Noir Shorts
+b_white_resized = rgba_d_white_dir.resize((new_bw, new_bh), Image.Resampling.LANCZOS)
+comp_shorts_black = Image.new("RGBA", (SW, SH), (0, 0, 0, 0))
+comp_shorts_black.paste(b_white_resized, (0, by_shorts), b_white_resized)
+comp_shorts_black.paste(img_title_white_shorts, (0, 0), img_title_white_shorts)
+comp_shorts_black.save(os.path.join(alphas_dir, "shorts_composition_white_on_transparent_1080x1920.png"))
+
+# Composite Fond Blanc Shorts
+b_ink_resized = rgba_g_ink_dir.resize((new_bw, new_bh), Image.Resampling.LANCZOS)
+comp_shorts_white = Image.new("RGBA", (SW, SH), (0, 0, 0, 0))
+comp_shorts_white.paste(b_ink_resized, (0, by_shorts), b_ink_resized)
+comp_shorts_white.paste(img_title_ink_shorts, (0, 0), img_title_ink_shorts)
+comp_shorts_white.save(os.path.join(alphas_dir, "shorts_composition_ink_on_transparent_1080x1920.png"))
+
+# 6. Preuves de validation de composite réel
+# Sur fond noir réel (0, 0, 0, 255)
+test_black_bg = Image.new("RGBA", (W, H), (0, 0, 0, 255))
+test_black_bg.paste(rgba_d_white_dir, (0, 0), rgba_d_white_dir)
+test_black_bg.paste(img_title_white_1672, (0, 0), img_title_white_1672)
+test_black_bg.save(os.path.join(alphas_dir, "proof_composite_on_black.png"))
+
+# Sur fond blanc réel (255, 255, 255, 255)
+test_white_bg = Image.new("RGBA", (W, H), (255, 255, 255, 255))
+test_white_bg.paste(rgba_g_ink_dir, (0, 0), rgba_g_ink_dir)
+test_white_bg.paste(img_title_ink_1672, (0, 0), img_title_ink_1672)
+test_white_bg.save(os.path.join(alphas_dir, "proof_composite_on_white.png"))
+
+print("Tous les fichiers ont été générés et sauvegardés avec succès dans:", alphas_dir)
