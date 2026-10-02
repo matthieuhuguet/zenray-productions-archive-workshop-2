@@ -1,0 +1,136 @@
+import hou
+import os
+
+print("=== Building FireEmblemFortune'sWave_UI in Live Houdini Session ===")
+
+# Locate or create the container folder/subnet in /obj
+obj = hou.node('/obj')
+
+# Clean existing if needed or grab
+container_name = "FireEmblemFortune_sWave_UI"
+ui_subnet = obj.node(container_name)
+if not ui_subnet:
+    ui_subnet = obj.createNode('subnet', container_name)
+    ui_subnet.moveToGoodPosition()
+
+print(f"Subnet container: {ui_subnet.path()}")
+
+# Create the Copernicus network inside the subnet
+copnet_name = "Cop_FireEmblem_Banner"
+copnet = ui_subnet.node(copnet_name)
+if not copnet:
+    copnet = ui_subnet.createNode('copnet', copnet_name)
+    copnet.moveToGoodPosition()
+
+print(f"Copernicus network: {copnet.path()}")
+
+# Inside the Copernicus network, construct the procedural graph:
+for child in copnet.children():
+    child.destroy()
+
+# 1. Base Ribbon SDF Shape
+shape = copnet.createNode('sdfshape', 'ribbon_shape')
+shape.parm('basictype').set('rect')
+shape.parm('rect_sizex').set(1.52)
+shape.parm('rect_sizey').set(0.38)
+shape.parm('rect_round').set(1)
+shape.parm('rect_roundness').set(0.40)
+shape.moveToGoodPosition()
+
+# 2. Smooth Ribbon Mask
+mono_mask = copnet.createNode('sdftomono', 'ribbon_mask')
+mono_mask.setInput(0, shape)
+mono_mask.parm('dosmooth').set(1)
+mono_mask.parm('smooth').set(0.18)
+mono_mask.moveToGoodPosition()
+
+# 3. Macro Billowing Smoke Noise
+fn_macro = copnet.createNode('fractalnoise', 'smoke_macro')
+fn_macro.parm('signature').set('mono')
+fn_macro.parm('noisetype').set('perlin')
+fn_macro.parm('elementsize').set(0.18)
+fn_macro.parm('oct').set(5)
+fn_macro.parm('rough').set(0.50)
+fn_macro.parm('amp').set(0.5)
+fn_macro.parm('center').set(0.5)
+fn_macro.moveToGoodPosition()
+
+# 4. Meso Wisps Smoke Noise
+fn_meso = copnet.createNode('fractalnoise', 'smoke_meso')
+fn_meso.parm('signature').set('mono')
+fn_meso.parm('noisetype').set('perlin')
+fn_meso.parm('elementsize').set(0.045)
+fn_meso.parm('oct').set(6)
+fn_meso.parm('rough').set(0.58)
+fn_meso.parm('amp').set(0.5)
+fn_meso.parm('center').set(0.5)
+fn_meso.moveToGoodPosition()
+
+# 5. Micro Texture Fibers Noise
+fn_micro = copnet.createNode('fractalnoise', 'smoke_micro')
+fn_micro.parm('signature').set('mono')
+fn_micro.parm('noisetype').set('perlin')
+fn_micro.parm('elementsize').set(0.012)
+fn_micro.parm('oct').set(5)
+fn_micro.parm('rough').set(0.65)
+fn_micro.parm('amp').set(0.5)
+fn_micro.parm('center').set(0.5)
+fn_micro.moveToGoodPosition()
+
+# 6. Splatter Cellular Noise
+wn_splat = copnet.createNode('cellularnoise', 'sparks_cells')
+wn_splat.parm('elementsize').set(0.018)
+wn_splat.parm('amplitude').set(1.8)
+wn_splat.moveToGoodPosition()
+
+# 7. Blends:
+# Combine mask with macro smoke
+blend_base = copnet.createNode('blend', 'blend_base')
+blend_base.setInput(0, mono_mask)
+blend_base.setInput(1, fn_macro)
+blend_base.parm('mode').set('multiply')
+blend_base.moveToGoodPosition()
+
+# Combine with meso wisps
+blend_wisps = copnet.createNode('blend', 'blend_wisps')
+blend_wisps.setInput(0, blend_base)
+blend_wisps.setInput(1, fn_meso)
+blend_wisps.parm('mode').set('multiply')
+blend_wisps.moveToGoodPosition()
+
+# 8. ROP Export Nodes for production assets
+target_dir = '/Users/zenray/Downloads/materials-copernicus-exercize/tmp-font-fire-emblem-asset/copernicus_assets'
+os.makedirs(target_dir, exist_ok=True)
+
+rop_smoke = copnet.createNode('rop_image', 'rop_smoke_density')
+rop_smoke.setInput(0, blend_wisps)
+rop_smoke.parm('copoutput').set(os.path.join(target_dir, 'copernicus_smoke_density.png'))
+rop_smoke.parm('setres').set(1)
+rop_smoke.parm('res1').set(1600)
+rop_smoke.parm('res2').set(480)
+rop_smoke.parm('trange').set(0)
+rop_smoke.moveToGoodPosition()
+
+rop_sparks = copnet.createNode('rop_image', 'rop_sparks')
+rop_sparks.setInput(0, wn_splat)
+rop_sparks.parm('copoutput').set(os.path.join(target_dir, 'copernicus_sparks.png'))
+rop_sparks.parm('setres').set(1)
+rop_sparks.parm('res1').set(1600)
+rop_sparks.parm('res2').set(480)
+rop_sparks.parm('trange').set(0)
+rop_sparks.moveToGoodPosition()
+
+# Cook/Execute both
+rop_smoke.parm('execute').pressButton()
+rop_sparks.parm('execute').pressButton()
+
+# Also save hip file so changes persist in LouisianaBayou
+hou.hipFile.save()
+
+result = {
+    "status": "success",
+    "subnet": ui_subnet.path(),
+    "copnet": copnet.path(),
+    "nodes_created": [c.name() for c in copnet.children()],
+    "hip_saved": hou.hipFile.path()
+}

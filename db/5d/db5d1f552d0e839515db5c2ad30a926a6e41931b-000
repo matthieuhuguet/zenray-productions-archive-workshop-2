@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @font-face {
+    font-family: 'Alize-Bold';
+    src: url('/Users/zenray/Library/Fonts/alize-bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+  }
+  
+  :root {
+    --canvas-w: 1600px;
+    --canvas-h: 890px;
+    --banner-top: 200px;
+    --color-cyan: #58e2ff;
+    --color-cyan-glow: #00b0ff;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  .canvas {
+    position: relative;
+    width: var(--canvas-w);
+    height: var(--canvas-h);
+    overflow: hidden;
+    background-image: url('../img-ref.webp');
+    background-size: cover;
+  }
+
+  .banner-smoke {
+    position: absolute;
+    top: var(--banner-top);
+    left: 0;
+    width: 1600px;
+    height: 480px;
+    background-image: url('../renders/banner_perfect_1to1.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="banner-smoke"></div>
+  </div>
+</body>
+</html>

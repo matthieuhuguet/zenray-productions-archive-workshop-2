@@ -1,0 +1,58 @@
+import os
+import numpy as np
+from PIL import Image, ImageFilter
+
+base_dir = '/Users/zenray/Downloads/materials-copernicus-exercize/tmp-font-fire-emblem-asset'
+cop_dir = os.path.join(base_dir, 'copernicus_assets')
+renders_dir = os.path.join(base_dir, 'renders')
+
+ribbon_mask = np.array(Image.open(os.path.join(cop_dir, 'ribbon_mask.png')).convert('L')).astype(float) / 255.0
+smoke_body = np.array(Image.open(os.path.join(cop_dir, 'smoke_body.png')).convert('L')).astype(float) / 255.0
+smoke_wisps = np.array(Image.open(os.path.join(cop_dir, 'smoke_wisps.png')).convert('L')).astype(float) / 255.0
+smoke_fibers = np.array(Image.open(os.path.join(cop_dir, 'smoke_fibers.png')).convert('L')).astype(float) / 255.0
+
+h, w = ribbon_mask.shape
+
+# Core dark ink:
+ink_density = (ribbon_mask ** 1.2) * (0.4 + 0.6 * smoke_body) * (0.5 + 0.5 * smoke_wisps)
+ink_density = np.clip((ink_density - 0.18) / 0.52, 0, 1)
+
+# Blue aura & mist:
+y_coords, x_coords = np.mgrid[0:h, 0:w]
+top_bias = np.clip(1.0 - (y_coords / float(h)), 0, 1)
+dist_center_x = np.abs(x_coords - w/2.0) / (w/2.0)
+
+blue_density = ribbon_mask * (0.35 + 0.65 * smoke_wisps) * (0.5 + 0.5 * smoke_fibers)
+blue_aura = blue_density * (0.6 + 0.5 * top_bias + 0.4 * dist_center_x)
+blue_aura = np.clip(blue_aura * 1.5, 0, 1)
+
+# Soft outer haze:
+outer_haze = ribbon_mask * (0.3 + 0.7 * smoke_body)
+outer_haze = np.clip((outer_haze - 0.05) / 0.65, 0, 1)
+
+# Construct RGBA directly as uint8 in 0..255 range:
+smoke_arr = np.zeros((h, w, 4), dtype=np.uint8)
+
+# Layer calculations:
+# R, G, B
+r = outer_haze * 45.0 + blue_aura * 15.0
+g = outer_haze * 55.0 + blue_aura * 140.0
+b = outer_haze * 68.0 + blue_aura * 255.0
+
+# Ink darkening:
+ink_factor = ink_density * 0.95
+r = r * (1.0 - ink_factor) + 8.0 * ink_factor
+g = g * (1.0 - ink_factor) + 14.0 * ink_factor
+b = b * (1.0 - ink_factor) + 24.0 * ink_factor
+
+# Alpha:
+alpha = np.clip((outer_haze * 0.75 + blue_aura * 0.88 + ink_density * 0.98), 0, 1) * 255.0
+
+smoke_arr[:,:,0] = np.clip(r, 0, 255).astype(np.uint8)
+smoke_arr[:,:,1] = np.clip(g, 0, 255).astype(np.uint8)
+smoke_arr[:,:,2] = np.clip(b, 0, 255).astype(np.uint8)
+smoke_arr[:,:,3] = np.clip(alpha, 0, 255).astype(np.uint8)
+
+smoke_img = Image.fromarray(smoke_arr, mode='RGBA')
+smoke_img.save(os.path.join(renders_dir, 'procedural_smoke_banner.png'))
+print("Fixed smoke alpha saved!")

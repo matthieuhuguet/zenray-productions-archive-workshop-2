@@ -1,0 +1,370 @@
+"""
+Script: build_copernicus_basecolor_and_layers.py
+Project: LouisianaBayou (Houdini 22 Copernicus)
+Subnet: /obj/FireEmblemFortune_sWave_UI/Cop_RefPerfect_Grayscale
+Objective: Procedural reproduction of refPerfect1.png with:
+1. Watercolor bleed edge degradation (blur + remap)
+2. Gouache paint splatters (blurred Worley droplets + threshold)
+3. Exact Blue vs Gray color separation
+4. Base Color composite (OUT_BASECOLOR)
+5. Live Houdini UI navigation (NetworkEditor + CompositorViewer)
+"""
+
+import os
+import hou
+
+def build_network():
+    obj = hou.node("/obj")
+    ui_subnet = obj.node("FireEmblemFortune_sWave_UI")
+    if not ui_subnet:
+        ui_subnet = obj.createNode("subnet", "FireEmblemFortune_sWave_UI")
+
+    cop_name = "Cop_RefPerfect_Grayscale"
+    cop = ui_subnet.node(cop_name)
+    if cop:
+        cop.destroy()
+
+    cop = ui_subnet.createNode("copnet", cop_name)
+    cop.parm("setres").set(1)
+    cop.parm("res1").set(1672)
+    cop.parm("res2").set(941)
+
+    # 1. Reference File
+    ref_file = cop.createNode("file", "REF_PERFECT")
+    ref_file.parm("filename").set("/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer/refPerfect1.png")
+
+    # 2. Main Silhouette (Horizontal organic billowing ribbon)
+    ribbon_shape = cop.createNode("sdfshape", "ribbon_shape")
+    ribbon_shape.parm("basictype").set("rect")
+    ribbon_shape.parm("rect_sizex").set(1.88)
+    ribbon_shape.parm("rect_sizey").set(0.36)
+    ribbon_shape.parm("rect_round").set(1)
+    ribbon_shape.parm("rect_roundness").set(0.14)
+
+    ribbon_mono = cop.createNode("sdftomono", "ribbon_mono")
+    ribbon_mono.setInput(0, ribbon_shape)
+    ribbon_mono.parm("dosmooth").set(1)
+    ribbon_mono.parm("smooth").set(0.15)
+
+    # Billowing Macro Noise
+    macro_noise = cop.createNode("fractalnoise", "cloud_macro")
+    macro_noise.parm("signature").set("mono")
+    macro_noise.parm("noisetype").set("perlin")
+    macro_noise.parm("elementsize").set(0.38)
+    macro_noise.parm("oct").set(5)
+    macro_noise.parm("rough").set(0.56)
+    macro_noise.parm("center").set(0.5)
+
+    mult_body = cop.createNode("blend", "mult_body")
+    mult_body.setInput(0, ribbon_mono)
+    mult_body.setInput(1, macro_noise)
+    mult_body.parm("mode").set("multiply")
+
+    # 3. Watercolor Bleed Degradation (Blur + Remap)
+    blur_aquarelle = cop.createNode("blur", "blur_aquarelle")
+    blur_aquarelle.setInput(0, mult_body)
+    blur_aquarelle.parm("filter").set(1) # Gaussian
+    blur_aquarelle.parm("units").set(1)  # Pixels
+    blur_aquarelle.parm("size_pixel").set(2.5)
+
+    remap_aquarelle = cop.createNode("remap", "remap_aquarelle")
+    remap_aquarelle.setInput(0, blur_aquarelle)
+    remap_aquarelle.parm("op").set("remap")
+    remap_aquarelle.parm("inputmin").set(0.08)
+    remap_aquarelle.parm("inputmax").set(0.44)
+    remap_aquarelle.parm("outputmin").set(0.0)
+    remap_aquarelle.parm("outputmax").set(1.0)
+
+    # 4. Internal Watercolor Texture (Meso wisps + Paper tooth)
+    meso_noise = cop.createNode("fractalnoise", "cloud_meso")
+    meso_noise.parm("signature").set("mono")
+    meso_noise.parm("noisetype").set("perlin")
+    meso_noise.parm("elementsize").set(0.08)
+    meso_noise.parm("oct").set(5)
+    meso_noise.parm("rough").set(0.60)
+    meso_noise.parm("center").set(0.5)
+
+    paper_tooth = cop.createNode("fractalnoise", "paper_tooth")
+    paper_tooth.parm("signature").set("mono")
+    paper_tooth.parm("noisetype").set("alligator")
+    paper_tooth.parm("elementsize").set(0.018)
+    paper_tooth.parm("oct").set(4)
+    paper_tooth.parm("rough").set(0.68)
+    paper_tooth.parm("amp").set(0.22)
+
+    blend_internal = cop.createNode("blend", "blend_internal")
+    blend_internal.setInput(0, macro_noise)
+    blend_internal.setInput(1, meso_noise)
+    blend_internal.parm("mode").set("screen")
+
+    blend_tooth = cop.createNode("blend", "blend_tooth")
+    blend_tooth.setInput(0, blend_internal)
+    blend_tooth.setInput(1, paper_tooth)
+    blend_tooth.parm("mode").set("softlight")
+
+    # Full Body Wash = Watercolor Bleed Silhouette * Internal Wash
+    body_wash = cop.createNode("blend", "body_wash")
+    body_wash.setInput(0, blend_tooth)
+    body_wash.setInput(1, remap_aquarelle)
+    body_wash.parm("mode").set("multiply")
+
+    # 5. Gouache Paint Splatters (Taches de peinture type gouache)
+    splat_noise_l = cop.createNode("fractalnoise", "splat_noise_large")
+    splat_noise_l.parm("signature").set("mono")
+    splat_noise_l.parm("noisetype").set("worleyA")
+    splat_noise_l.parm("elementsize").set(0.12)
+    splat_noise_l.parm("oct").set(1)
+
+    splat_blur_l = cop.createNode("blur", "splat_blur_large")
+    splat_blur_l.setInput(0, splat_noise_l)
+    splat_blur_l.parm("filter").set(1)
+    splat_blur_l.parm("units").set(1)
+    splat_blur_l.parm("size_pixel").set(5.5)
+
+    splat_remap_l = cop.createNode("remap", "splat_remap_large")
+    splat_remap_l.setInput(0, splat_blur_l)
+    splat_remap_l.parm("op").set("threshold")
+    splat_remap_l.parm("threshold").set(0.20)
+    splat_remap_l.parm("side").set("less")
+
+    splat_noise_s = cop.createNode("fractalnoise", "splat_noise_small")
+    splat_noise_s.parm("signature").set("mono")
+    splat_noise_s.parm("noisetype").set("worleyA")
+    splat_noise_s.parm("elementsize").set(0.06)
+    splat_noise_s.parm("oct").set(1)
+
+    splat_blur_s = cop.createNode("blur", "splat_blur_small")
+    splat_blur_s.setInput(0, splat_noise_s)
+    splat_blur_s.parm("filter").set(1)
+    splat_blur_s.parm("units").set(1)
+    splat_blur_s.parm("size_pixel").set(3.5)
+
+    splat_remap_s = cop.createNode("remap", "splat_remap_small")
+    splat_remap_s.setInput(0, splat_blur_s)
+    splat_remap_s.parm("op").set("threshold")
+    splat_remap_s.parm("threshold").set(0.18)
+    splat_remap_s.parm("side").set("less")
+
+    splat_combined = cop.createNode("blend", "splat_combined")
+    splat_combined.setInput(0, splat_remap_l)
+    splat_combined.setInput(1, splat_remap_s)
+    splat_combined.parm("mode").set("max")
+
+    splat_bound_shape = cop.createNode("sdfshape", "splat_bound_shape")
+    splat_bound_shape.parm("basictype").set("rect")
+    splat_bound_shape.parm("rect_sizex").set(1.92)
+    splat_bound_shape.parm("rect_sizey").set(0.56)
+    splat_bound_shape.parm("rect_round").set(1)
+    splat_bound_shape.parm("rect_roundness").set(0.2)
+
+    splat_bound_mono = cop.createNode("sdftomono", "splat_bound_mono")
+    splat_bound_mono.setInput(0, splat_bound_shape)
+    splat_bound_mono.parm("dosmooth").set(1)
+    splat_bound_mono.parm("smooth").set(0.16)
+
+    splat_gouache = cop.createNode("blend", "splatter_gouache_final")
+    splat_gouache.setInput(0, splat_combined)
+    splat_gouache.setInput(1, splat_bound_mono)
+    splat_gouache.parm("mode").set("multiply")
+
+    out_splatters = cop.createNode("null", "OUT_GOUACHE_SPLATTERS")
+    out_splatters.setInput(0, splat_gouache)
+
+    # 6. Deep Dark Ink Core Spine
+    core_spine_shape = cop.createNode("sdfshape", "core_spine_shape")
+    core_spine_shape.parm("basictype").set("rect")
+    core_spine_shape.parm("tx").set(0.0)
+    core_spine_shape.parm("ty").set(0.0)
+    core_spine_shape.parm("rect_sizex").set(1.4)
+    core_spine_shape.parm("rect_sizey").set(0.18)
+    core_spine_shape.parm("rect_round").set(1)
+    core_spine_shape.parm("rect_roundness").set(0.1)
+
+    core_spine_mono = cop.createNode("sdftomono", "core_spine_mono")
+    core_spine_mono.setInput(0, core_spine_shape)
+    core_spine_mono.parm("dosmooth").set(1)
+    core_spine_mono.parm("smooth").set(0.15)
+
+    core_spine_mod = cop.createNode("blend", "core_spine_mod")
+    core_spine_mod.setInput(0, core_spine_mono)
+    core_spine_mod.setInput(1, macro_noise)
+    core_spine_mod.parm("mode").set("multiply")
+
+    # 7. COLOR SEPARATION: Blue vs Gray
+    left_wing_shape = cop.createNode("sdfshape", "left_wing_shape")
+    left_wing_shape.parm("basictype").set("rect")
+    left_wing_shape.parm("tx").set(-0.62)
+    left_wing_shape.parm("ty").set(0.02)
+    left_wing_shape.parm("rect_sizex").set(0.68)
+    left_wing_shape.parm("rect_sizey").set(0.38)
+    left_wing_shape.parm("rect_round").set(1)
+    left_wing_shape.parm("rect_roundness").set(0.18)
+
+    left_wing_mono = cop.createNode("sdftomono", "left_wing_mono")
+    left_wing_mono.setInput(0, left_wing_shape)
+    left_wing_mono.parm("dosmooth").set(1)
+    left_wing_mono.parm("smooth").set(0.20)
+
+    right_wing_shape = cop.createNode("sdfshape", "right_wing_shape")
+    right_wing_shape.parm("basictype").set("rect")
+    right_wing_shape.parm("tx").set(0.62)
+    right_wing_shape.parm("ty").set(0.02)
+    right_wing_shape.parm("rect_sizex").set(0.68)
+    right_wing_shape.parm("rect_sizey").set(0.38)
+    right_wing_shape.parm("rect_round").set(1)
+    right_wing_shape.parm("rect_roundness").set(0.18)
+
+    right_wing_mono = cop.createNode("sdftomono", "right_wing_mono")
+    right_wing_mono.setInput(0, right_wing_shape)
+    right_wing_mono.parm("dosmooth").set(1)
+    right_wing_mono.parm("smooth").set(0.20)
+
+    crest_shape = cop.createNode("sdfshape", "crest_shape")
+    crest_shape.parm("basictype").set("rect")
+    crest_shape.parm("tx").set(-0.05)
+    crest_shape.parm("ty").set(0.10)
+    crest_shape.parm("rect_sizex").set(0.55)
+    crest_shape.parm("rect_sizey").set(0.18)
+    crest_shape.parm("rect_round").set(1)
+    crest_shape.parm("rect_roundness").set(0.15)
+
+    crest_mono = cop.createNode("sdftomono", "crest_mono")
+    crest_mono.setInput(0, crest_shape)
+    crest_mono.parm("dosmooth").set(1)
+    crest_mono.parm("smooth").set(0.16)
+
+    wings_comb = cop.createNode("blend", "wings_comb")
+    wings_comb.setInput(0, left_wing_mono)
+    wings_comb.setInput(1, right_wing_mono)
+    wings_comb.parm("mode").set("max")
+
+    blue_regions = cop.createNode("blend", "blue_regions")
+    blue_regions.setInput(0, wings_comb)
+    blue_regions.setInput(1, crest_mono)
+    blue_regions.parm("mode").set("max")
+
+    blue_wash = cop.createNode("blend", "blue_wash")
+    blue_wash.setInput(0, body_wash)
+    blue_wash.setInput(1, blue_regions)
+    blue_wash.parm("mode").set("multiply")
+
+    mask_blue = cop.createNode("blend", "mask_blue_total")
+    mask_blue.setInput(0, blue_wash)
+    mask_blue.setInput(1, splat_gouache)
+    mask_blue.parm("mode").set("max")
+
+    out_blue_mask = cop.createNode("null", "OUT_BLUE_SEPARATION")
+    out_blue_mask.setInput(0, mask_blue)
+
+    remap_blue_inv = cop.createNode("remap", "remap_blue_inv")
+    remap_blue_inv.setInput(0, blue_regions)
+    remap_blue_inv.parm("op").set("remap")
+    remap_blue_inv.parm("inputmin").set(0.0)
+    remap_blue_inv.parm("inputmax").set(1.0)
+    remap_blue_inv.parm("outputmin").set(1.0)
+    remap_blue_inv.parm("outputmax").set(0.0)
+
+    mask_gray = cop.createNode("blend", "mask_gray_total")
+    mask_gray.setInput(0, body_wash)
+    mask_gray.setInput(1, remap_blue_inv)
+    mask_gray.parm("mode").set("multiply")
+
+    out_gray_mask = cop.createNode("null", "OUT_GRAY_SEPARATION")
+    out_gray_mask.setInput(0, mask_gray)
+
+    # 8. EXACT COLORIZATION VIA MONOTORGB
+    color_gray = cop.createNode("monotorgb", "color_gray")
+    color_gray.setInput(0, mask_gray)
+    gray_basis = (hou.rampBasis.Linear, hou.rampBasis.Linear, hou.rampBasis.Linear, hou.rampBasis.Linear)
+    gray_keys = (0.0, 0.20, 0.65, 1.0)
+    gray_values = (
+        (0.0, 0.0, 0.0),                          # Transparent
+        (6/255.0, 8/255.0, 11/255.0),            # Pitch black ink #06080b
+        (32/255.0, 36/255.0, 42/255.0),          # Charcoal slate #20242a
+        (85/255.0, 92/255.0, 105/255.0)          # Misty watercolor gray #555c69
+    )
+    color_gray.parm("ramp").set(hou.Ramp(gray_basis, gray_keys, gray_values))
+
+    color_blue = cop.createNode("monotorgb", "color_blue")
+    color_blue.setInput(0, mask_blue)
+    blue_basis = (hou.rampBasis.Linear, hou.rampBasis.Linear, hou.rampBasis.Linear, hou.rampBasis.Linear)
+    blue_keys = (0.0, 0.25, 0.70, 1.0)
+    blue_values = (
+        (0.0, 0.0, 0.0),                          # Transparent
+        (2/255.0, 18/255.0, 48/255.0),           # Midnight navy ink #021230
+        (15/255.0, 60/255.0, 145/255.0),         # Deep cobalt blue #0f3c91
+        (62/255.0, 142/255.0, 228/255.0)         # Luminous gouache blue #3e8ee4
+    )
+    color_blue.parm("ramp").set(hou.Ramp(blue_basis, blue_keys, blue_values))
+
+    # 9. BASE COLOR COMPOSITE
+    basecolor = cop.createNode("blend", "basecolor_composite")
+    basecolor.setInput(0, color_gray)
+    basecolor.setInput(1, color_blue)
+    basecolor.parm("mode").set("max")
+
+    out_basecolor = cop.createNode("null", "OUT_BASECOLOR")
+    out_basecolor.setInput(0, basecolor)
+    out_basecolor.setDisplayFlag(True)
+
+    cloud_with_splat = cop.createNode("blend", "cloud_with_splatters")
+    cloud_with_splat.setInput(0, body_wash)
+    cloud_with_splat.setInput(1, splat_gouache)
+    cloud_with_splat.parm("mode").set("max")
+
+    out_height = cop.createNode("null", "OUT_HEIGHT_DENSITY")
+    out_height.setInput(0, cloud_with_splat)
+
+    diff_node = cop.createNode("blend", "DIFF_VS_REF")
+    diff_node.setInput(0, out_basecolor)
+    diff_node.setInput(1, ref_file)
+    diff_node.parm("mode").set("diff")
+
+    # 10. ROPs
+    render_dir = "/Users/zenray/Downloads/materials-copernicus-exercize/tmp-layer/renders"
+    os.makedirs(render_dir, exist_ok=True)
+
+    rop_basecolor = cop.createNode("rop_image", "ROP_BASECOLOR")
+    rop_basecolor.setInput(0, out_basecolor)
+    rop_basecolor.parm("copoutput").set(os.path.join(render_dir, "copernicus_basecolor.png"))
+    rop_basecolor.parm("trange").set(0)
+
+    rop_blue = cop.createNode("rop_image", "ROP_BLUE_SEPARATION")
+    rop_blue.setInput(0, out_blue_mask)
+    rop_blue.parm("copoutput").set(os.path.join(render_dir, "copernicus_blue_separation.png"))
+    rop_blue.parm("trange").set(0)
+
+    rop_gray = cop.createNode("rop_image", "ROP_GRAY_SEPARATION")
+    rop_gray.setInput(0, out_gray_mask)
+    rop_gray.parm("copoutput").set(os.path.join(render_dir, "copernicus_gray_separation.png"))
+    rop_gray.parm("trange").set(0)
+
+    rop_height = cop.createNode("rop_image", "ROP_HEIGHT_DENSITY")
+    rop_height.setInput(0, out_height)
+    rop_height.parm("copoutput").set(os.path.join(render_dir, "copernicus_height_density.png"))
+    rop_height.parm("trange").set(0)
+
+    cop.layoutChildren()
+
+    for t in hou.ui.paneTabs():
+        if t.type().name() == "NetworkEditor":
+            t.setPwd(cop)
+            if hasattr(t, "frameAll"):
+                t.frameAll()
+        elif t.type().name() == "CompositorViewer":
+            try:
+                t.setCurrentNode(out_basecolor)
+            except Exception:
+                pass
+
+    rop_basecolor.parm("execute").pressButton()
+    rop_blue.parm("execute").pressButton()
+    rop_gray.parm("execute").pressButton()
+    rop_height.parm("execute").pressButton()
+
+    hou.hipFile.save()
+    print(f"Network built and rendered successfully with {len(cop.children())} nodes.")
+    return cop
+
+if __name__ == "__main__":
+    build_network()

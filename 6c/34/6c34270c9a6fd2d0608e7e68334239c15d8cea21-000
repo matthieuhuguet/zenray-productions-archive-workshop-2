@@ -1,0 +1,148 @@
+import os
+import numpy as np
+from PIL import Image, ImageFilter, ImageEnhance
+
+base_dir = '/Users/zenray/Downloads/materials-copernicus-exercize/tmp-font-fire-emblem-asset'
+cop_dir = os.path.join(base_dir, 'copernicus_assets')
+renders_dir = os.path.join(base_dir, 'renders')
+os.makedirs(renders_dir, exist_ok=True)
+
+# 1. Load Copernicus procedural maps (1600x480)
+ribbon_mask = np.array(Image.open(os.path.join(cop_dir, 'ribbon_mask.png')).convert('L')).astype(float) / 255.0
+smoke_body = np.array(Image.open(os.path.join(cop_dir, 'smoke_body.png')).convert('L')).astype(float) / 255.0
+smoke_wisps = np.array(Image.open(os.path.join(cop_dir, 'smoke_wisps.png')).convert('L')).astype(float) / 255.0
+smoke_fibers = np.array(Image.open(os.path.join(cop_dir, 'smoke_fibers.png')).convert('L')).astype(float) / 255.0
+smoke_clumps = np.array(Image.open(os.path.join(cop_dir, 'smoke_clumps.png')).convert('L')).astype(float) / 255.0
+
+h, w = ribbon_mask.shape
+print(f"Canvas: {w}x{h}")
+
+# 2. Synthesize High-Fidelity Smoke Layers:
+# A) Core Dark Ink: Deep black/indigo mass with frayed sumi-e edges
+ink_density = (ribbon_mask ** 1.3) * (0.45 + 0.55 * smoke_body) * (0.50 + 0.50 * smoke_wisps)
+ink_density = np.clip((ink_density - 0.20) / 0.50, 0, 1)
+
+# B) Vibrant Blue & Cyan Aura: Backlit atmospheric smoke
+# Higher at top and ends, giving the magical aura
+y_coords, x_coords = np.mgrid[0:h, 0:w]
+top_bias = np.clip(1.0 - (y_coords / float(h)), 0, 1)
+dist_center_x = np.abs(x_coords - w/2.0) / (w/2.0)
+
+blue_density = ribbon_mask * (0.35 + 0.65 * smoke_wisps) * (0.5 + 0.5 * smoke_fibers)
+blue_aura = blue_density * (0.7 + 0.5 * top_bias + 0.4 * dist_center_x)
+blue_aura = np.clip(blue_aura * 1.5, 0, 1)
+
+# C) Soft outer atmospheric smoke wash (diffuse haze)
+outer_haze = ribbon_mask * (0.3 + 0.7 * smoke_body)
+outer_haze = np.clip((outer_haze - 0.05) / 0.65, 0, 1)
+
+# Create Transparent PNG for Smoke Banner:
+smoke_rgba = np.zeros((h, w, 4), dtype=float)
+
+# Color synthesis:
+# Blue aura color: vibrant cyan/royal blue (R: 0..40, G: 120..190, B: 220..255)
+# Outer haze: neutral cool grey (R: 45, G: 55, B: 65)
+# Core ink: deep midnight black (R: 5, G: 10, B: 18)
+
+# Layer 1: Outer Haze
+smoke_rgba[:,:,0] = outer_haze * 45.0
+smoke_rgba[:,:,1] = outer_haze * 55.0
+smoke_rgba[:,:,2] = outer_haze * 68.0
+smoke_rgba[:,:,3] = outer_haze * 0.70
+
+# Layer 2: Additive/Over Blue Aura
+aura_r = blue_aura * 15.0
+aura_g = blue_aura * 140.0
+aura_b = blue_aura * 255.0
+smoke_rgba[:,:,0] = np.maximum(smoke_rgba[:,:,0], aura_r)
+smoke_rgba[:,:,1] = np.maximum(smoke_rgba[:,:,1], aura_g)
+smoke_rgba[:,:,2] = np.maximum(smoke_rgba[:,:,2], aura_b)
+smoke_rgba[:,:,3] = np.maximum(smoke_rgba[:,:,3], blue_aura * 0.88)
+
+# Layer 3: Core Dark Ink
+# Multiplicative darkening in the center
+ink_factor = ink_density * 0.95
+smoke_rgba[:,:,0] = smoke_rgba[:,:,0] * (1.0 - ink_factor) + 8.0 * ink_factor
+smoke_rgba[:,:,1] = smoke_rgba[:,:,1] * (1.0 - ink_factor) + 14.0 * ink_factor
+smoke_rgba[:,:,2] = smoke_rgba[:,:,2] * (1.0 - ink_factor) + 24.0 * ink_factor
+smoke_rgba[:,:,3] = np.maximum(smoke_rgba[:,:,3], ink_density * 0.98)
+
+# Convert to uint8 Image
+smoke_img = Image.fromarray(np.clip(smoke_rgba * 255.0 if smoke_rgba.max() <= 1.0 else smoke_rgba, 0, 255).astype(np.uint8))
+smoke_img.save(os.path.join(renders_dir, 'procedural_smoke_banner.png'))
+print("Saved procedural_smoke_banner.png!")
+
+# 3. Render Sparks Layer from Copernicus cellular noise & particles
+# Cyan spark droplets with bright white/cyan core and blue glow
+sparks_clean = Image.open(os.path.join(base_dir, 'pure_sparks.png')).convert('L')
+# Resize / align sparks into the 1600x480 banner frame
+# In ref_banner_full, crop was (100, 200, 1500, 700) -> 1400x500
+# Place sparks at (100, 0)
+sparks_canvas = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+sparks_arr = np.zeros((h, w, 4), dtype=np.uint8)
+
+# Load pure sparks bitmap
+sparks_bmp = np.array(sparks_clean)
+sh, sw = sparks_bmp.shape
+
+# Offset: x=100, y=-10
+ox, oy = 100, 0
+for y in range(min(sh, h - oy)):
+    for x in range(min(sw, w - ox)):
+        if sparks_bmp[y, x] > 128:
+            sparks_arr[y + oy, x + ox] = [88, 226, 255, 255]
+
+sparks_img = Image.fromarray(sparks_arr)
+# Add glow to sparks
+sparks_glow = sparks_img.filter(ImageFilter.GaussianBlur(radius=3))
+sparks_final = Image.alpha_composite(sparks_glow, sparks_img)
+sparks_final.save(os.path.join(renders_dir, 'sparks_layer.png'))
+print("Saved sparks_layer.png!")
+
+# 4. Render PLAYER PHASE Text Layer with exact Alize-Bold font & styling
+# Render clean SVG text using rsvg-convert with high resolution
+svg_clean_path = os.path.join(base_dir, 'text_letters_clean.svg')
+text_hires_path = os.path.join(renders_dir, 'text_clean_hires.png')
+# Target width: 1000, height: 200
+os.system(f"rsvg-convert -w 1000 -h 200 '{svg_clean_path}' -o '{text_hires_path}'")
+
+text_raw = Image.open(text_hires_path).convert('RGBA')
+# Make text color exact cyan gradient:
+# Core: #58e2ff (R:88, G:226, B:255)
+# Inner shadow / dark edge: #011120
+text_arr = np.array(text_raw)
+text_alpha = text_arr[:,:,3].astype(float) / 255.0
+
+# Cyan text fill
+text_colored_arr = np.zeros((200, 1000, 4), dtype=np.uint8)
+text_colored_arr[:,:,0] = 88
+text_colored_arr[:,:,1] = 226
+text_colored_arr[:,:,2] = 255
+text_colored_arr[:,:,3] = (text_alpha * 255.0).astype(np.uint8)
+text_cyan_img = Image.fromarray(text_colored_arr)
+
+# Text Glow: cyan halo (blur radius 6)
+text_glow1 = text_cyan_img.filter(ImageFilter.GaussianBlur(radius=6))
+text_glow2 = text_cyan_img.filter(ImageFilter.GaussianBlur(radius=2))
+text_with_glow = Image.alpha_composite(text_glow1, text_glow2)
+text_with_glow = Image.alpha_composite(text_with_glow, text_cyan_img)
+
+# Center text in banner (1600x480):
+# Text width 1000, placed horizontally around x=300, y=140
+final_banner = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+final_banner = Image.alpha_composite(final_banner, smoke_img)
+final_banner.paste(sparks_final, (0, 0), sparks_final)
+final_banner.paste(text_with_glow, (300, 140), text_with_glow)
+
+out_final = os.path.join(renders_dir, 'final_fire_emblem_banner.png')
+final_banner.save(out_final)
+print(f"Final Fire Emblem Banner saved to: {out_final}")
+
+# 5. Composite over original full scene to verify 1:1 match
+ref_scene = Image.open(os.path.join(base_dir, 'img-ref.webp')).convert('RGBA')
+full_composite = ref_scene.copy()
+# Paste final banner at original coordinates: y=200
+full_composite.paste(final_banner, (0, 200), final_banner)
+out_scene = os.path.join(renders_dir, 'full_scene_reproduced.png')
+full_composite.save(out_scene)
+print(f"Full Scene Reproduced saved to: {out_scene}")

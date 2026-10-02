@@ -1,0 +1,42 @@
+import hou
+import os
+
+print("=== Creating 3D Banner Geometry in LouisianaBayou ===")
+
+ui_subnet = hou.node('/obj/FireEmblemFortune_sWave_UI')
+
+# Create Geometry node for the banner display in Viewport
+geo = ui_subnet.node('Banner_Mesh_Lookdev')
+if not geo:
+    geo = ui_subnet.createNode('geo', 'Banner_Mesh_Lookdev')
+    geo.moveToGoodPosition()
+
+for c in geo.children():
+    c.destroy()
+
+# 1. Grid (16:4.8 aspect ratio matching 1600x480 texture)
+grid = geo.createNode('grid', 'banner_plane')
+grid.parm('sizex').set(16.0)
+grid.parm('sizey').set(4.8)
+grid.parm('rows').set(100)
+grid.parm('cols').set(300)
+grid.parm('orient').set(2) # XY plane
+
+# 2. UV Project
+uv = geo.createNode('uvproject', 'uvs')
+uv.setInput(0, grid)
+
+# 3. Null Out
+out_node = geo.createNode('null', 'OUT_BANNER')
+out_node.setInput(0, uv)
+out_node.setDisplayFlag(True)
+out_node.setRenderFlag(True)
+
+geo.layoutChildren()
+hou.hipFile.save()
+
+result = {
+    "geo_path": geo.path(),
+    "nodes": [c.name() for c in geo.children()],
+    "hip_saved": hou.hipFile.path()
+}

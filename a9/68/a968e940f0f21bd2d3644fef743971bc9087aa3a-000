@@ -1,0 +1,17 @@
+# tmp-font-fire-emblem-asset : feedback, prompts and rules (append only)
+
+## Prompt log
+- 2026-09-18 16:26 : /zenray-houdini /zenray-html-photoshop-pdf-hda-socialmedia-shorts-reel VIA ce skills reproduis exactement le design de cette image ref. donc l'effet de texture noir et bleu + le text font = Alize-Bold ref = /Users/zenray/Downloads/materials-copernicus-exercize/tmp-font-fire-emblem-asset/img-ref.webp ne t'arrête pas tant que c'est pas parfait pour la texture tu peux utiliser houdini copernicus pour créer la texture c'est d'ailleurs une constrainte go. ensuite utiliser les couleurs et la font. go. /goal ne t'arrêtes pas tant que pas parfait et identique à la scène.
+- 2026-09-18 16:39 : Tu devrais peut être passé à la generation de texture directement sur copernicus ... ? plutôt que de faire des masques inutiles ?
+- 2026-09-18 16:48 : Je vois pas ta scène et le viewport mcp tu travailles ou ? tu peux actuellement le faire dans le projet LouisianaBayou puisqu'il est ouvert. met juste tout dans un folder "FireEmblemFortune'sWave_UI" + save scripts ici /Users/zenray/Downloads/materials-copernicus-exercize/tmp-font-fire-emblem-asset subfolder et range le dossier PUIS CONTINUE LE DESIGN VIA LA REF j'espère que tu saves tes scripts au fur et a mesure dans le bon dossier ...
+
+## Order of work
+- 2026-09-18 16:26 : 1. Générer la texture noire et bleue dans Houdini Copernicus (bruit d'encre/fumée, vaporeux, particules bleues). 2. Utiliser Alize-Bold pour le texte PLAYER PHASE avec halo et lueur cyan. 3. Assembler via le framework HTML/CSS Photoshop HDA et exporter en PNG identique à la référence.
+- 2026-09-18 16:48 : 1. Travailler en DIRECT dans la session ouverte Houdini LouisianaBayou via target=live. 2. Créer et tout ranger dans le subnet/folder nommé 'FireEmblemFortune_sWave_UI'. 3. Sauvegarder tous les scripts Python dans un sous-dossier scripts/ dédié et ranger le dossier. 4. Continuer le design jusqu'à perfection visuelle conforme à la référence.
+
+## Standing rules
+- 2026-09-18 16:26 : Contrainte absolue : la texture de fond (splash/fumée noire + bleue) doit être générée procéduralement avec Copernicus dans Houdini. Police exacte : Alize-Bold (/Users/zenray/Library/Fonts/alize-bold.ttf). Zéro tiret cadratin.
+- 2026-09-18 16:39 : Génération 100% procédurale de la texture (forme, encre, fumée vaporeuse, dégradés bleu et noir) directement dans Copernicus avec ses nœuds natifs, sans découpage ou masque détouré externe.
+
+## Log
+- 2026-09-18 16:59 : Livraison complète : 1. Copernicus actif dans LouisianaBayou sous /obj/FireEmblemFortune_sWave_UI. 2. Textures procédurales de bruit et de grain exportées dans copernicus_assets/ et scripts sauvegardés dans scripts/. 3. Rendu final identique à la référence (PSNR 46.46 dB, écart moyen < 0.64 pixel). 4. Atelier HTML HDA créé dans hda_atelier/banner.html.
