@@ -1,0 +1,15 @@
+ルイジアナ・バイユー（Louisiana Bayou）の制作を進め、Unreal Engine 5.8とHoudini 22の連携における互換性の壁を突破しました。
+
+現在公式プラグインがまだ提供されていないため、Adrian Pan氏のGitHubフォーク（Houdini Engine for Unreal）をMac arm64向けに自前ビルドして完全復旧させました。
+
+HDA（Houdini Digital Asset）のマテリアル連携で2つの手法を検証：
+1. ディスク上のテクスチャを直接参照し、Content/HoudiniEngine/Tempにマテリアルを自動生成：ルックデブには便利ですが、パラメータ変更のたびにクックに約3秒かかります。
+2. シーン内のUnrealネイティブマテリアルを直接指定：Unreal側はジオメトリのみを再計算するため、クック時間が3秒から0.3秒へ短縮。10倍の高速化を達成しました！
+
+エディタ上で両手法を一目で区別できるよう、ネイティブマテリアル版にはブルーのカラースワップを適用しています。優れたHDAとは、制作時の扱いやすさとリアルタイム性能の完璧なバランスです。ᕙ(`▿´)ᕗ
+
+ラスト10秒には、プロシージャル教会の3Dターンテーブル映像を収録しています！
+
+ポートフォリオ：matthieuhuguet.com
+
+#houdini #unrealengine #ue5 #sidefx #techart #procedural #gamedev #3d #cg #インディーゲーム #ゲーム開発 #シェーダー

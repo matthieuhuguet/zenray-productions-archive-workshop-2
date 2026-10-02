@@ -1,0 +1,174 @@
+# Short Louisiana Bayou : Feedbacks, Prompts et Règles (Append Only)
+
+## Prompt log
+
+### 2026-09-19 19:45 : Initialisation et structure du Short
+- **Prompt Matthieu** : Création du short 4:5 pour le projet Louisiana Bayou (Houdini Engine dans Unreal 5.8 sur Mac ARM64).
+- **Intention** : Short de 39 secondes (13 screenshots de 3 secondes chacun), montrant la compilation du fork, la liaison de textures sur disque vs matériaux natifs, et la chute du temps de cook de 3s à 0.3s (vitesse x10).
+- **Mesures** : Résolution 3072x3840 (4:5) à 60 fps. Audio découpé depuis YouTube à 00:03:10.00, normalisé à -14 LUFS.
+
+### 2026-09-19 20:10 : Rangement et arborescence du chantier
+- **Prompt Matthieu** : « Je t'ai demandé de ranger et tu l'as pas fait en fait ... »
+- **Intention** : Arrêter tout désordre dans le dossier de travail. Rangement strict en sous-dossiers dédiés.
+- **Action prise** :
+  - `01_master/` : livrables finaux MP4 et MOV
+  - `02_sources/` : audio et screenshots sources
+  - `03_work/` : scripts de rendu et fichiers intermédiaires
+  - `Thumbnail/` : miniatures déclinées
+  - `Post/` : texte du post, sous-titres et kaomoji
+
+### 2026-09-19 20:30 : Miniature thème noir et style V4
+- **Prompt Matthieu** : « Refait la thumbnail avec le thème noir ... background qui doit être dans le skill /zenray-houdini /wait-validation »
+- **Intention** : Appliquer le thème noir V4 avec le nuage et la lueur argentée canonique.
+
+### 2026-09-19 20:45 : Correction cadrage et rejet des poussières d'étoiles
+- **Prompt Matthieu** : « NON L 'IMG EST CROP ET TA AJOUTER DES POUSSIERES D ETOILES PARTOUT PUTAIN /Users/zenray/Downloads/tmp-bayou-louisiana/Thumbnail/thumbnail-church-4x5-4k.jpg recommence proprement »
+- **Intention** :
+  - Zéro poussière d'étoile artificielle : aucun bruit ni particule ajoutée au-dessus de l'image.
+  - Pas de crop destructif : la structure de l'église doit être entière et bien fittée dans l'espace.
+
+### 2026-09-19 20:55 : Ajustement du split 45 degrés
+- **Prompt Matthieu** : « Je veux juste que l'img soit bien fit dans l'espace ... je ne voulais que l'eglise bleu / rouge du coup ... c'est fait ? »
+- **Intention** : Supprimer l'arrière-plan de l'éditeur Unreal et isoler uniquement le bâtiment avec la coupe diagonale 45 degrés rouge et bleu (`diag_neg_off1000_red46.png`).
+
+### 2026-09-19 21:05 : Validation du thème noir et miniature 4:5
+- **Prompt Matthieu** : « diag_neg_off1000_red46.png parfait utilise lui pour la miniature et fond noir plus le style v4 on y presque style theme noir »
+- **Intention** : Validation du découpage. Assemblage avec fond noir pur, nuage argenté V4, titrage GT Sectra Bold Caps et sous-titre Archive Garamond.
+
+### 2026-09-19 21:10 : Déclinaison miniature 1:1 en 4K
+- **Prompt Matthieu** : « Parfait même miniatures en 1:1 stp 4k aussi même dossier et même style :/Users/zenray/Downloads/tmp-bayou-louisiana/Thumbnail/thumbnail-church-4x5-4k.jpg »
+- **Intention** : Génération de `Thumbnail/thumbnail-church-1x1-4k.jpg` en 3840x3840 (1:1 4K), 95% JPEG, style strictement identique.
+
+### 2026-09-19 21:15 : Prétéléchargement musique (+10s)
+- **Prompt Matthieu** : « Parfait en attendant je vais te donner 10 secondes de plus pour le shorts donc commence à prétélécharger la musique en plus. »
+- **Intention** : Allonger la musique à 49.00s à partir de 00:03:10.00 sur la piste source.
+
+### 2026-09-19 21:18 : Ajout du clip Turntable 3D et transition audio
+- **Prompt Matthieu** : « /Users/zenray/.claude/tmp/tmp-church-turn-short/ChurchTurn_1080x1920.mp4 go ajoute ça du coup. au shorts avec la musique indexé + fade in et out au moment ou y'a le nouvelle extrait re fade in et out. d'une seconde. (le son uniquement) note un .md feedback qui note tous mes feedbacks depuis le début par rapport à ce short qu'on a créé go. je vois plus mes skills feedback sur gemini ce doit être un bug à fix »
+- **Intention** :
+  1. Ajouter les 10 secondes du turntable 3D de l'église (`ChurchTurn_1080x1920.mp4`) en fin de short (durée totale 49.0s).
+  2. Transition audio uniquement : fondu de sortie de 1 seconde (38s à 39s) puis fondu d'entrée de 1 seconde (39s à 40s) au changement d'extrait.
+  3. Fichier `.md` de feedback consignant l'historique complet des retours.
+  4. Réparation de la visibilité du skill feedback sur Gemini/Antigravity.
+
+---
+
+## Order of work
+
+1. Nettoyer et organiser le répertoire de travail en 5 sous-dossiers (`01_master`, `02_sources`, `03_work`, `Thumbnail`, `Post`).
+2. Découper et normaliser la piste audio à -14 LUFS.
+3. Rendre la vidéo 4:5 Style V4 avec analyse chromatique dynamique (fond jaune pour Houdini, rouge pour textures disque, bleu pour matériaux natifs).
+4. Animer les sous-titres Archive Garamond avec pop-in, fade-out et support complet des kaomoji.
+5. Produire la miniature 4:5 4K sans étoiles artificielles, avec le découpage 45 degrés rouge/bleu validé.
+6. Décliner la miniature en 1:1 4K.
+7. Ajouter l'extrait turntable 10s pour porter la vidéo à 49s avec dip audio d'une seconde.
+8. Corriger le bug de découverte des skills YAML dans Gemini et synchroniser.
+
+---
+
+## Standing rules
+
+### 2026-09-19 21:26 : Progression sonore concert sur les 10 dernières secondes
+- **Prompt Matthieu** : « Sur les 10 dernieres secondes lors de la transition faut mettre le son un peu plus fort avec une progression easings intéressante comme dans un concert (juste decibel). »
+- **Intention** :
+  - Augmenter le volume sonore spécifiquement sur le showcase turntable 3D final (39s à 49s).
+  - Appliquer une courbe d'easing expressive type concert : dip à 38s-39s, reprise percutante en ease-out cubic (0 à +6 dB en 1.2s), puis montée progressive en S-curve (smoothstep) jusqu'à +7.6 dB au climax, crête sécurisée par un limiteur transparent à -0.4 dB pour éviter toute distorsion.
+
+---
+
+## Order of work
+
+1. Nettoyer et organiser le répertoire de travail en 5 sous-dossiers (`01_master`, `02_sources`, `03_work`, `Thumbnail`, `Post`).
+2. Découper et normaliser la piste audio à -14 LUFS.
+3. Rendre la vidéo 4:5 Style V4 avec analyse chromatique dynamique (fond jaune pour Houdini, rouge pour textures disque, bleu pour matériaux natifs).
+4. Animer les sous-titres Archive Garamond avec pop-in, fade-out et support complet des kaomoji.
+5. Produire la miniature 4:5 4K sans étoiles artificielles, avec le découpage 45 degrés rouge/bleu validé.
+6. Décliner la miniature en 1:1 4K.
+7. Ajouter l'extrait turntable 10s pour porter la vidéo à 49s avec dip audio d'une seconde.
+8. Corriger le bug de découverte des skills YAML dans Gemini et synchroniser.
+9. Supprimer définitivement les particules de background dans les scripts et le skill zenray-houdini, puis re-rendre les masters 49s.
+10. Appliquer la courbe de progression sonore concert (juste décibels) sur les 10 dernières secondes et remuxer les masters.
+
+---
+
+## Standing rules
+
+- **Rangement strict** : Ne jamais laisser traîner de fichiers à la racine du chantier. Utiliser systématiquement l'arborescence numérotée standard.
+- **Zéro crop sauvage** : Les visuels clés (bâtiment, église, éléments 3D) doivent être entièrement visibles dans le cadre, centrés et fittés sans découpe accidentelle de la toiture ou des pieds.
+- **Zéro poussière d'étoile ni paillettes** : Règle absolue pour tout short ou miniature. Les fonds de couleur (bleu, rouge, jaune, noir) doivent rester strictement purs : couleur de fond + nuage volumétrique + lueur diffuse. Ne jamais ajouter d'ellipses de particules aléatoires (`part_layer`, `background_particle_count = 0`).
+- **Progression sonore concert au climax** : Sur un extrait final ou un showcase de fin (ex. les 10 dernières secondes), ne pas laisser le son au même niveau ou plus bas que l'intro. Appliquer une courbe d'easing concert (ease-out punchy à l'impact puis montée progressive en S-curve) avec un boost en décibels (+2.5 à +3.5 dB au-dessus du reste du mix) compensé pour l'orchestration et plafonné au limiteur sans distorsion.
+### 2026-09-19 21:29 : Remplacement de la police des sous-titres par Inter Bold Italic
+- **Prompt Matthieu** : « Change la font des sous titres par Inter Italic Bold go. garde mon ancienne variations ... go recompute rapidement »
+- **Intention** :
+  - Remplacer Archive Garamond par Inter Bold Italic (`InterVariable-Italic.ttf` avec variation `Bold Italic`) pour les sous-titres du short.
+  - Conserver l'ancienne variation sous `03_work/render_short_4x5_v4_canon_garamond.py`.
+  - Recalculer rapidement les masters 49s MP4 et MOV.
+
+### 2026-09-19 21:32 : Ajout de la carte freelance 2.5s et inscription au skill zenray-houdini
+- **Prompt Matthieu** : « Il manque l'img de freelance putain t'oublies à chaque fois de les mettres dans les shorts faut pas que j'ai à te le rappeller ajoute 2.5 secondes au shorts à la fin et note le à l'avenir dans /zenray-houdini section shorts /Users/zenray/Downloads/tmp-3D-houdini/commercial/commercialMatthieu.png note le et enregistre directement l'img dans le dossier skill puis index la avec son path TU AS TOUT NOTÉ AUJOURD'HUI ? je veux rien oublier /ctrl-s »
+- **Intention** :
+  - Ajouter la carte commerciale freelance (`commercialMatthieu.png`) pendant 2.5 secondes à la fin du short (durée totale 51.50s).
+  - Enregistrer et indexer l'image directement dans le dossier skill `~/.claude/skills/zenray-houdini/assets/commercial/commercialMatthieu.png`.
+  - Inscrire la règle absolue dans `~/.claude/skills/zenray-houdini/SKILL.md` (section Shorts) et propager la synchronisation.
+  - Ajuster le master audio à 51.50s avec maintien de la progression sonore concert sur les 12.5s finales.
+  - Recalculer les masters finaux 51.50s MP4 et MOV.
+  - Effectuer la sauvegarde complète de session /ctrl-s (mémoire, progress, git).
+
+---
+
+## Order of work
+
+1. Nettoyer et organiser le répertoire de travail en 5 sous-dossiers (`01_master`, `02_sources`, `03_work`, `Thumbnail`, `Post`).
+2. Découper et normaliser la piste audio à -14 LUFS.
+3. Rendre la vidéo 4:5 Style V4 avec analyse chromatique dynamique (fond jaune pour Houdini, rouge pour textures disque, bleu pour matériaux natifs).
+4. Animer les sous-titres Archive Garamond avec pop-in, fade-out et support complet des kaomoji.
+5. Produire la miniature 4:5 4K sans étoiles artificielles, avec le découpage 45 degrés rouge/bleu validé.
+6. Décliner la miniature en 1:1 4K.
+7. Ajouter l'extrait turntable 10s pour porter la vidéo à 49s avec dip audio d'une seconde.
+8. Corriger le bug de découverte des skills YAML dans Gemini et synchroniser.
+9. Supprimer définitivement les particules de background dans les scripts et le skill zenray-houdini, puis re-rendre les masters 49s.
+10. Appliquer la courbe de progression sonore concert (juste décibels) sur les 10 dernières secondes et remuxer les masters.
+11. Sauvegarder la variation Garamond dans `render_short_4x5_v4_canon_garamond.py`, passer les sous-titres en Inter Bold Italic et recalculer les masters.
+12. Enregistrer la carte commerciale freelance `commercialMatthieu.png` dans `~/.claude/skills/zenray-houdini/assets/commercial/`, l'indexer dans SKILL.md et synchroniser.
+13. Étendre l'audio à 51.50s, ajouter la carte freelance de 2.5s en clôture du short et recalculer les masters MP4 et MOV finaux.
+14. Exécuter le protocole /ctrl-s de sauvegarde intégrale de la session.
+
+---
+
+## Standing rules
+
+- **Rangement strict** : Ne jamais laisser traîner de fichiers à la racine du chantier. Utiliser systématiquement l'arborescence numérotée standard.
+- **Zéro crop sauvage** : Les visuels clés (bâtiment, église, éléments 3D) doivent être entièrement visibles dans le cadre, centrés et fittés sans découpe accidentelle de la toiture ou des pieds.
+- **Zéro poussière d'étoile ni paillettes** : Règle absolue pour tout short ou miniature. Les fonds de couleur (bleu, rouge, jaune, noir) doivent rester strictement purs : couleur de fond + nuage volumétrique + lueur diffuse. Ne jamais ajouter d'ellipses de particules aléatoires (`part_layer`, `background_particle_count = 0`).
+- **Progression sonore concert au climax** : Sur un extrait final ou un showcase de fin (ex. les 10 dernières secondes), ne pas laisser le son au même niveau ou plus bas que l'intro. Appliquer une courbe d'easing concert (ease-out punchy à l'impact puis montée progressive en S-curve) avec un boost en décibels (+2.5 à +3.5 dB au-dessus du reste du mix) compensé pour l'orchestration et plafonné au limiteur sans distorsion.
+- **Carte freelance en fin de short (OBLIGATOIRE)** : Tout short se clôture obligatoirement par la carte commerciale freelance Matthieu (`commercialMatthieu.png`) pendant exactement 2.5 secondes. L'asset est stocké de façon canonique dans `~/.claude/skills/zenray-houdini/assets/commercial/commercialMatthieu.png`.
+- **Conservation des variations typographiques** : Lors d'un changement de police de titrage ou sous-titres, toujours conserver une copie de travail de la variation précédente (ex. `render_short_4x5_v4_canon_garamond.py`) avant de basculer le script principal sur la nouvelle police.
+- **Transitions audio précises** : Lors de l'insertion d'un nouvel extrait avec fondu audio demandé, respecter la durée exacte (ex. 1s de fade-out et 1s de fade-in) sans altérer la vidéo par des fondus noirs non demandés.
+- **YAML des SKILL.md** : Toujours utiliser le bloc scalaire `description: >-` pour éviter que les deux-points `:` dans la description ne cassent le parseur YAML de Gemini/Antigravity.
+- **Typographie système V4** : Titres en GT Sectra Bold Caps avec ombre noire portée, sous-titres en Archive Garamond Bold Italic ou Inter Bold Italic avec auto-fit sous 1860px.
+- **Aucun tiret cadratin** : Règle absolue dans tous les textes, fichiers markdown, commits et réponses.
+
+---
+
+## Log
+
+- `02_sources/audio/master_audio_51s5_dip.m4a` : 51.500000s exactes, 48000 Hz stéréo AAC 320k, normalisé -14 LUFS sur partie 1, dip 38s-39s, puis progression concert sur le turntable et la carte freelance (+6 dB à 40.2s, +7.6 dB à 45s, soutenu jusqu'à 50.7s, fondu 0.8s, crête -0.4 dB).
+- `02_sources/commercial/commercialMatthieu.png` : copie locale de la carte commerciale freelance 3240x4050 (ratio 4:5 natif).
+- `~/.claude/skills/zenray-houdini/assets/commercial/commercialMatthieu.png` : asset canonique sauvegardé et indexé dans le skill.
+- `~/.claude/skills/zenray-houdini/SKILL.md` : règle absolue de la carte de fin freelance de 2.5s inscrite dans la section Shorts.
+- `Thumbnail/thumbnail-church-4x5-4k.jpg` : 3072x3840, 95% JPEG, fond noir pur, découpe 45 degrés rouge/bleu, zéro particule parasite.
+- `Thumbnail/thumbnail-church-1x1-4k.jpg` : 3840x3840, 95% JPEG, même composition fittée au carré.
+- `~/.claude/skills/feedback-stack/SKILL.md` et 8 autres skills : YAML réparé avec `description: >-`, 0 erreur de parsing sur les 91 skills.
+- `~/.claude/skills/feedback/` : alias créé et synchronisé sur Claude, Gemini et Codex pour un accès direct via `/feedback`.
+- `01_master/short-louisiana-bayou-4x5.mp4` : rendu 51.50s combinant les 13 cues V4, le turntable 3D 10s et la carte freelance 2.5s, sous-titres Inter Bold Italic, sans particules.
+- `01_master/short-louisiana-bayou-4x5.mov` : version Apple HEVC VideoToolbox 51.50s avec sous-titres en Inter Bold Italic.
+- `03_work/render_short_4x5_v4_canon_garamond.py` : sauvegarde de la variation avec sous-titres en Archive Garamond.
+- `~/.claude/skills/zenray-houdini/` : synchronisation effectuée vers Codex et Memory1 via `sync-skill.sh`.
+- Post complet en 3 langues (Français, English, 日本語) : légendes complètes, versions courtes, découpage des 13 sous-titres et alt-texts rédigés dans `Memory1/SocialMedia/Posts/short-02-louisiana-bayou-hda/post_02_louisiana_bayou_hda.md` et copiés dans `Post/` avec fichiers txt individuels prêts à l'emploi.
+
+## 2 October 2026, 13:14:51 +0200 : Historical source
+
+<!-- feedback-event:a7b3b8bc6cb08fb97b75fc5fa3e0ea089df0d1b666d06c89049b3df54dc932b7 (2 October 2026, 13:14:51 +0200) -->
+- Project: louisiana-bayou; kind: provenance. (2 October 2026, 13:14:51 +0200)
+
+> Future feedback is recorded in [FEEDBACK.md](/Users/zenray/.claude/Memory1/Projects/louisiana-bayou/FEEDBACK.md). (2 October 2026, 13:14:51 +0200)

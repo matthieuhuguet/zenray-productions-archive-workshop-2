@@ -1,0 +1,15 @@
+Aujourd'hui, j'ai avancé sur mon projet Louisiana Bayou avec un vrai défi technique de compatibilité.
+
+J'utilise Unreal Engine 5.8 et Houdini 22, mais aucun plugin officiel n'était disponible. J'ai donc compilé le fork GitHub d'Adrian Pan (Houdini Engine for Unreal) sur Mac arm64 pour rétablir la passerelle.
+
+Deux approches pour les textures du HDA :
+1. Importer les textures directement depuis le disque dur vers Content/HoudiniEngine/Temp : pratique pour le lookdev direct, mais chaque cook prend environ 3 secondes.
+2. Lier le HDA aux matériaux natifs déjà existants dans la scène Unreal : Unreal ne calcule plus que la géométrie et le temps de cook tombe à 0,3 seconde. Vitesse multipliée par 10 !
+
+Pour bien distinguer les deux flux dans l'éditeur, j'ai appliqué un swap color bleu sur la version liée nativement. Un bon HDA trouve l'équilibre idéal entre confort de travail et réactivité temps réel. ᕙ(`▿´)ᕗ
+
+Découvrez les 10 dernières secondes avec le turntable 3D complet de l'église procédurale !
+
+Portfolio et travaux : matthieuhuguet.com
+
+#houdini #unrealengine #ue5 #sidefx #techart #procedural #gamedev #louisianabayou #hda #shaders #indiedev #3dmodeling

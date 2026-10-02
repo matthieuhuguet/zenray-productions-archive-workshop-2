@@ -1,0 +1,12 @@
+# Short 02 : Louisiana Bayou Procedural Church HDA
+
+| Dossier | Ce qu il contient |
+|---|---|
+| `01_master/` | `short-louisiana-bayou-4x5.mp4` et `short-louisiana-bayou-4x5.mov` : 3072x3840 (4:5 4K), 60 fps, 39,00 s, audio normalise -14 LUFS |
+| `02_sources/` | `audio/` (source et master audio), `references/` (renders et meshes), `screenshots/` (captures OBS de session) |
+| `03_work/` | `render_short_4x5_v4_canon.py`, `generate_thumbnail_4x5.py`, notes et feedbacks de travail |
+| `Thumbnail/` | `thumbnail-church-4x5-4k.jpg` : livrable miniature unique 4:5 en 4K (3072x3840 JPEG 95%) |
+| `Post/` | Lien vers le post SocialMedia trilingue avec texte et sous-titres |
+
+Refaire le master video : `~/.venvs/shorts/bin/python 03_work/render_short_4x5_v4_canon.py`
+Refaire la miniature : `~/.venvs/shorts/bin/python 03_work/generate_thumbnail_4x5.py`

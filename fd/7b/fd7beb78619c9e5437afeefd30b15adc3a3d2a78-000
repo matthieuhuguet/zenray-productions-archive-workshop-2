@@ -1,0 +1,15 @@
+Today I pushed my Louisiana Bayou project forward and tackled a major compatibility hurdle.
+
+I'm working with Unreal Engine 5.8 and Houdini 22, but no official plugin was available. So I compiled Adrian Pan's GitHub fork (Houdini Engine for Unreal) on Mac arm64, fully restoring the bridge.
+
+Two approaches for HDA texturing:
+1. Linking textures from disk into Content/HoudiniEngine/Temp: great for plug and play visual lookdev, but every HDA tweak costs around 3 seconds of cook time.
+2. Referencing native materials already in the Unreal scene: Unreal only computes geometry, dropping cook time from 3s down to 0.3s. Speed is multiplied by ten!
+
+To clearly distinguish both workflows in the viewport, I applied a blue color swap on the native material version. A great HDA balances designer comfort with smooth realtime performance. ᕙ(`▿´)ᕗ
+
+Check out the last 10 seconds for the full 3D turntable showcase of the procedural church!
+
+Portfolio & work: matthieuhuguet.com
+
+#houdini #unrealengine #ue5 #sidefx #techart #procedural #gamedev #louisianabayou #hda #shaders #indiedev #3dmodeling
